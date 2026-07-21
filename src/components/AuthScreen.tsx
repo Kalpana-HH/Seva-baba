@@ -1,0 +1,294 @@
+import React, { useState } from 'react';
+import { motion } from 'motion/react';
+import { User } from '../types';
+import { registerUser, loginUser, wipeAllDatabaseAndStorage } from '../lib/firebase';
+import { KeyRound, User as UserIcon, Lock, ArrowRight, Sparkles, Phone, Compass, Landmark } from 'lucide-react';
+
+interface AuthScreenProps {
+  onAuthSuccess: (user: User) => void;
+}
+
+export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
+  const [role, setRole] = useState<'member' | 'temple_team'>('member');
+  const [isLogin, setIsLogin] = useState(true);
+  const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [showWipeConfirm, setShowWipeConfirm] = useState(false);
+  const [wipeSuccess, setWipeSuccess] = useState(false);
+
+  const handleWipeDatabase = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      await wipeAllDatabaseAndStorage();
+      setWipeSuccess(true);
+      setTimeout(() => {
+        setWipeSuccess(false);
+        setShowWipeConfirm(false);
+        window.location.reload();
+      }, 2000);
+    } catch (err: any) {
+      setError("Wipe failed: " + (err.message || err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !password || (!isLogin && !phoneNumber.trim())) {
+      setError("Please fill out all required fields.");
+      return;
+    }
+
+    setError(null);
+    setLoading(true);
+
+    try {
+      let user: User;
+      if (isLogin) {
+        user = await loginUser(name, password, role);
+      } else {
+        user = await registerUser(name, password, phoneNumber, role);
+      }
+      onAuthSuccess(user);
+    } catch (err: any) {
+      setError(err.message || "Database error: can't process auth request");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#FAF9F6] text-neutral-800 flex flex-col justify-center items-center p-4 font-sans selection:bg-[#C88A8A]/20 selection:text-neutral-900" id="auth-screen-root">
+      
+      {/* Decorative center card */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className="w-full max-w-md bg-white border border-[#EBE7DF] rounded-3xl p-8 sm:p-10 shadow-lg flex flex-col space-y-6"
+        id="auth-card"
+      >
+        {/* Brand Header */}
+        <div className="text-center space-y-2">
+          <span className="inline-block p-4 bg-[#FAF3F3] border border-[#F6EBEB] text-[#C88A8A] rounded-2xl text-3xl shadow-2xs">
+            {role === 'temple_team' ? '🕌' : '🌸'}
+          </span>
+          <h1 className="font-serif text-2xl font-semibold text-neutral-900 tracking-tight pt-2">
+            Gather Planner
+          </h1>
+          <p className="text-xs text-neutral-500 max-w-xs mx-auto">
+            {role === 'temple_team' 
+              ? 'Devotional volunteer team coordination & temple food planning'
+              : 'Plan intimate culinary celebrations and menus with simplicity and grace'}
+          </p>
+        </div>
+
+        {/* Role Selection Tabs */}
+        <div className="space-y-1.5">
+          <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider text-center mb-1">
+            Access Portal
+          </label>
+          <div className="grid grid-cols-2 gap-2 bg-neutral-50 p-1.5 rounded-2xl border border-neutral-150">
+            <button
+              type="button"
+              onClick={() => {
+                setRole('member');
+                setError(null);
+              }}
+              className={`flex flex-col items-center gap-1 py-2.5 px-3 rounded-xl transition cursor-pointer text-center ${
+                role === 'member'
+                  ? 'bg-white text-[#C88A8A] border border-[#F5E6E6] shadow-sm font-semibold'
+                  : 'text-neutral-500 hover:text-neutral-800 border border-transparent'
+              }`}
+            >
+              <Compass size={16} />
+              <span className="text-[11px]">Member Access</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setRole('temple_team');
+                setError(null);
+              }}
+              className={`flex flex-col items-center gap-1 py-2.5 px-3 rounded-xl transition cursor-pointer text-center ${
+                role === 'temple_team'
+                  ? 'bg-neutral-900 text-amber-100 border border-neutral-850 shadow-sm font-semibold'
+                  : 'text-neutral-500 hover:text-neutral-850 border border-transparent'
+              }`}
+            >
+              <Landmark size={16} />
+              <span className="text-[11px]">Temple Team Access</span>
+            </button>
+          </div>
+        </div>
+
+        {role === 'temple_team' && (
+          <div className="bg-amber-50 border border-amber-200/80 rounded-2xl p-3 text-center space-y-1 animate-in fade-in slide-in-from-top-1 duration-150">
+            <p className="text-[9px] text-amber-800 font-bold uppercase tracking-wider flex items-center justify-center gap-1">
+              ⚠️ Leadership Notice
+            </p>
+            <p className="text-[10px] text-amber-950 font-medium leading-relaxed">
+              Only the team leader should log in using the Temple Team credentials.
+            </p>
+          </div>
+        )}
+
+        {/* Tab Selector (Log In vs Create Account) */}
+        <div className="flex bg-neutral-100 p-1 rounded-xl border border-neutral-200 shadow-3xs" id="auth-tabs">
+          <button
+            type="button"
+            onClick={() => {
+              setIsLogin(true);
+              setError(null);
+            }}
+            className={`flex-1 py-2 text-xs font-semibold rounded-lg transition cursor-pointer ${
+              isLogin
+                ? role === 'temple_team' 
+                  ? 'bg-neutral-900 text-amber-100 shadow-3xs font-bold'
+                  : 'bg-white text-[#C88A8A] shadow-3xs font-bold'
+                : 'text-neutral-500 hover:text-neutral-800'
+            }`}
+            id="auth-tab-login"
+          >
+            {role === 'temple_team' ? 'Team Login' : 'Member Login'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setIsLogin(false);
+              setError(null);
+            }}
+            className={`flex-1 py-2 text-xs font-semibold rounded-lg transition cursor-pointer ${
+              !isLogin
+                ? role === 'temple_team'
+                  ? 'bg-neutral-900 text-amber-100 shadow-3xs font-bold'
+                  : 'bg-white text-[#C88A8A] shadow-3xs font-bold'
+                : 'text-neutral-500 hover:text-neutral-800'
+            }`}
+            id="auth-tab-signup"
+          >
+            {role === 'temple_team' ? 'Team Sign Up' : 'Member Sign Up'}
+          </button>
+        </div>
+
+        {/* Error Alert Box */}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="p-3.5 bg-red-50 border border-red-200 text-red-900 rounded-2xl text-xs font-semibold flex items-start gap-2.5"
+            id="auth-error-alert"
+          >
+            <span className="mt-0.5 w-1.5 h-1.5 rounded-full bg-red-600 shrink-0"></span>
+            <span>{error}</span>
+          </motion.div>
+        )}
+
+        {/* Input Form */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-[10px] font-bold text-neutral-600 uppercase tracking-wider mb-1.5">
+              {isLogin 
+                ? role === 'temple_team' ? 'Team Name or Phone' : 'Username or Phone'
+                : role === 'temple_team' ? 'Team Name' : 'Username'
+              }
+            </label>
+            <div className="relative">
+              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-400">
+                <UserIcon size={15} />
+              </span>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={isLogin
+                  ? role === 'temple_team' ? "Team Name or Phone Number" : "Username or Phone Number"
+                  : role === 'temple_team' ? "e.g., Sunday Seva Squad" : "Enter your name"
+                }
+                className="w-full pl-10 pr-4 py-3 bg-white border border-[#EBE7DF] rounded-xl text-neutral-800 placeholder-neutral-400 focus:outline-hidden focus:ring-1 focus:ring-[#C88A8A] focus:border-[#C88A8A] text-sm transition-all"
+                required
+                id="auth-name-input"
+              />
+            </div>
+          </div>
+
+          {!isLogin && (
+            <div>
+              <label className="block text-[10px] font-bold text-neutral-600 uppercase tracking-wider mb-1.5">
+                Phone Number
+              </label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-400">
+                  <Phone size={15} />
+                </span>
+                <input
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  placeholder="e.g., 5551234567"
+                  className="w-full pl-10 pr-4 py-3 bg-white border border-[#EBE7DF] rounded-xl text-neutral-800 placeholder-neutral-400 focus:outline-hidden focus:ring-1 focus:ring-[#C88A8A] focus:border-[#C88A8A] text-sm transition-all"
+                  required
+                  id="auth-phone-input"
+                />
+              </div>
+              <p className="text-[10px] text-neutral-400 mt-1 pl-1">
+                Required so event organizers can coordinate with you.
+              </p>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-[10px] font-bold text-neutral-600 uppercase tracking-wider mb-1.5">
+              Password
+            </label>
+            <div className="relative">
+              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-400">
+                <Lock size={15} />
+              </span>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full pl-10 pr-4 py-3 bg-white border border-[#EBE7DF] rounded-xl text-neutral-800 placeholder-neutral-400 focus:outline-hidden focus:ring-1 focus:ring-[#C88A8A] focus:border-[#C88A8A] text-sm transition-all"
+                required
+                id="auth-password-input"
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className={`w-full py-3 text-xs font-semibold rounded-xl uppercase tracking-wider transition shadow-sm flex items-center justify-center gap-2 cursor-pointer mt-6 ${
+              role === 'temple_team'
+                ? 'bg-neutral-900 hover:bg-neutral-800 text-amber-100 disabled:bg-neutral-300'
+                : 'bg-[#C88A8A] hover:bg-[#B57878] disabled:bg-neutral-300 text-white'
+            }`}
+            id="auth-submit-button"
+          >
+            {loading ? (
+              <span>Processing...</span>
+            ) : (
+              <>
+                <span>{isLogin ? 'Log In' : 'Sign Up'}</span>
+                <ArrowRight size={14} />
+              </>
+            )}
+          </button>
+        </form>
+
+        <div className="text-center pt-2 border-t border-neutral-100 space-y-2">
+          <p className="text-[10px] text-neutral-400 font-mono">
+            Securely synchronized cloud & offline storage
+          </p>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
