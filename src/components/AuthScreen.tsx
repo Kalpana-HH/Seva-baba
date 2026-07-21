@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { User } from '../types';
-import { registerUser, loginUser, wipeAllDatabaseAndStorage, getFirebaseStatus } from '../lib/firebase';
-import { KeyRound, User as UserIcon, Lock, ArrowRight, Sparkles, Phone, Compass, Landmark } from 'lucide-react';
+import { registerUser, loginUser, resetUserPassword, getFirebaseStatus } from '../lib/firebase';
+import { User as UserIcon, Lock, ArrowRight, Phone, Compass, Landmark, KeyRound, ArrowLeft, Check } from 'lucide-react';
 
 interface AuthScreenProps {
   onAuthSuccess: (user: User) => void;
@@ -12,31 +12,13 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
   const [role, setRole] = useState<'member' | 'temple_team'>('member');
   const { configured, healthy } = getFirebaseStatus();
   const [isLogin, setIsLogin] = useState(true);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [resetSuccess, setResetSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [showWipeConfirm, setShowWipeConfirm] = useState(false);
-  const [wipeSuccess, setWipeSuccess] = useState(false);
-
-  const handleWipeDatabase = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      await wipeAllDatabaseAndStorage();
-      setWipeSuccess(true);
-      setTimeout(() => {
-        setWipeSuccess(false);
-        setShowWipeConfirm(false);
-        window.location.reload();
-      }, 2000);
-    } catch (err: any) {
-      setError("Wipe failed: " + (err.message || err));
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,6 +28,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     }
 
     setError(null);
+    setResetSuccess(null);
     setLoading(true);
 
     try {
@@ -58,6 +41,32 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
       onAuthSuccess(user);
     } catch (err: any) {
       setError(err.message || "Database error: can't process auth request");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !phoneNumber.trim() || !password) {
+      setError("Please fill in Username, Phone Number, and New Password.");
+      return;
+    }
+
+    setError(null);
+    setResetSuccess(null);
+    setLoading(true);
+
+    try {
+      await resetUserPassword(name, phoneNumber, password, role);
+      setResetSuccess("Password reset successfully! You can now log in with your new password.");
+      setTimeout(() => {
+        setIsForgotPassword(false);
+        setIsLogin(true);
+        setResetSuccess(null);
+      }, 2000);
+    } catch (err: any) {
+      setError(err.message || "Could not reset password. Please verify your username and phone number.");
     } finally {
       setLoading(false);
     }
@@ -100,6 +109,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
               onClick={() => {
                 setRole('member');
                 setError(null);
+                setResetSuccess(null);
               }}
               className={`flex flex-col items-center gap-1 py-2.5 px-3 rounded-xl transition cursor-pointer text-center ${
                 role === 'member'
@@ -115,6 +125,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
               onClick={() => {
                 setRole('temple_team');
                 setError(null);
+                setResetSuccess(null);
               }}
               className={`flex flex-col items-center gap-1 py-2.5 px-3 rounded-xl transition cursor-pointer text-center ${
                 role === 'temple_team'
@@ -165,181 +176,304 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
           </div>
         )}
 
-        {/* Tab Selector (Log In vs Create Account) */}
-        <div className="flex bg-neutral-100 p-1 rounded-xl border border-neutral-200 shadow-3xs" id="auth-tabs">
-          <button
-            type="button"
-            onClick={() => {
-              setIsLogin(true);
-              setError(null);
-            }}
-            className={`flex-1 py-2 text-xs font-semibold rounded-lg transition cursor-pointer ${
-              isLogin
-                ? role === 'temple_team' 
-                  ? 'bg-neutral-900 text-amber-100 shadow-3xs font-bold'
-                  : 'bg-white text-[#C88A8A] shadow-3xs font-bold'
-                : 'text-neutral-500 hover:text-neutral-800'
-            }`}
-            id="auth-tab-login"
-          >
-            {role === 'temple_team' ? 'Team Login' : 'Member Login'}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setIsLogin(false);
-              setError(null);
-            }}
-            className={`flex-1 py-2 text-xs font-semibold rounded-lg transition cursor-pointer ${
-              !isLogin
-                ? role === 'temple_team'
-                  ? 'bg-neutral-900 text-amber-100 shadow-3xs font-bold'
-                  : 'bg-white text-[#C88A8A] shadow-3xs font-bold'
-                : 'text-neutral-500 hover:text-neutral-800'
-            }`}
-            id="auth-tab-signup"
-          >
-            {role === 'temple_team' ? 'Team Sign Up' : 'Member Sign Up'}
-          </button>
-        </div>
-
-        {/* Error Alert Box */}
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="p-3.5 bg-red-50 border border-red-200 text-red-900 rounded-2xl text-xs font-semibold flex flex-col gap-2"
-            id="auth-error-alert"
-          >
-            <div className="flex items-start gap-2.5">
-              <span className="mt-1 w-1.5 h-1.5 rounded-full bg-red-600 shrink-0"></span>
-              <span className="leading-relaxed">{error}</span>
-            </div>
-
-            {/* Smart Action Buttons based on error message */}
-            {(error.includes("Sign Up") || error.includes("not found") || error.includes("exist on this deployment yet")) && isLogin && (
+        {!isForgotPassword ? (
+          <>
+            {/* Tab Selector (Log In vs Create Account) */}
+            <div className="flex bg-neutral-100 p-1 rounded-xl border border-neutral-200 shadow-3xs" id="auth-tabs">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLogin(true);
+                  setError(null);
+                  setResetSuccess(null);
+                }}
+                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition cursor-pointer ${
+                  isLogin
+                    ? role === 'temple_team' 
+                      ? 'bg-neutral-900 text-amber-100 shadow-3xs font-bold'
+                      : 'bg-white text-[#C88A8A] shadow-3xs font-bold'
+                    : 'text-neutral-500 hover:text-neutral-800'
+                }`}
+                id="auth-tab-login"
+              >
+                {role === 'temple_team' ? 'Team Login' : 'Member Login'}
+              </button>
               <button
                 type="button"
                 onClick={() => {
                   setIsLogin(false);
                   setError(null);
+                  setResetSuccess(null);
                 }}
-                className="mt-1 self-start px-3 py-1.5 bg-red-600 text-white text-[11px] font-bold rounded-lg hover:bg-red-700 transition cursor-pointer shadow-3xs flex items-center gap-1.5"
+                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition cursor-pointer ${
+                  !isLogin
+                    ? role === 'temple_team'
+                      ? 'bg-neutral-900 text-amber-100 shadow-3xs font-bold'
+                      : 'bg-white text-[#C88A8A] shadow-3xs font-bold'
+                    : 'text-neutral-500 hover:text-neutral-800'
+                }`}
+                id="auth-tab-signup"
               >
-                <span>✨ Switch to Sign Up tab</span>
-                <ArrowRight size={12} />
+                {role === 'temple_team' ? 'Team Sign Up' : 'Member Sign Up'}
               </button>
+            </div>
+
+            {/* Error Alert Box */}
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="p-3.5 bg-red-50 border border-red-200 text-red-900 rounded-2xl text-xs font-semibold flex flex-col gap-2"
+                id="auth-error-alert"
+              >
+                <div className="flex items-start gap-2.5">
+                  <span className="mt-1 w-1.5 h-1.5 rounded-full bg-red-600 shrink-0"></span>
+                  <span className="leading-relaxed">{error}</span>
+                </div>
+
+                {/* Smart Action Buttons */}
+                {error === "User not found" && isLogin && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsLogin(false);
+                      setError(null);
+                    }}
+                    className="mt-1 self-start px-3 py-1.5 bg-red-600 text-white text-[11px] font-bold rounded-lg hover:bg-red-700 transition cursor-pointer shadow-3xs flex items-center gap-1.5"
+                  >
+                    <span>✨ Switch to Sign Up tab</span>
+                    <ArrowRight size={12} />
+                  </button>
+                )}
+
+                {error === "Password wrong" && isLogin && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsForgotPassword(true);
+                      setError(null);
+                    }}
+                    className="mt-1 self-start px-3 py-1.5 bg-neutral-900 text-white text-[11px] font-bold rounded-lg hover:bg-neutral-800 transition cursor-pointer shadow-3xs flex items-center gap-1.5"
+                  >
+                    <KeyRound size={12} />
+                    <span>Forgot password? Reset it here</span>
+                  </button>
+                )}
+              </motion.div>
             )}
 
-            {error.includes("registered under") && (
+            {/* Input Form */}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-bold text-neutral-600 uppercase tracking-wider mb-1.5">
+                  {isLogin 
+                    ? role === 'temple_team' ? 'Team Name or Phone' : 'Username or Phone'
+                    : role === 'temple_team' ? 'Team Name' : 'Username'
+                  }
+                </label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-400">
+                    <UserIcon size={15} />
+                  </span>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder={isLogin
+                      ? role === 'temple_team' ? "Team Name or Phone Number" : "Username or Phone Number"
+                      : role === 'temple_team' ? "e.g., Sunday Seva Squad" : "Enter your name"
+                    }
+                    className="w-full pl-10 pr-4 py-3 bg-white border border-[#EBE7DF] rounded-xl text-neutral-800 placeholder-neutral-400 focus:outline-hidden focus:ring-1 focus:ring-[#C88A8A] focus:border-[#C88A8A] text-sm transition-all"
+                    required
+                    id="auth-name-input"
+                  />
+                </div>
+              </div>
+
+              {!isLogin && (
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-600 uppercase tracking-wider mb-1.5">
+                    Phone Number
+                  </label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-400">
+                      <Phone size={15} />
+                    </span>
+                    <input
+                      type="tel"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      placeholder="e.g., 5551234567"
+                      className="w-full pl-10 pr-4 py-3 bg-white border border-[#EBE7DF] rounded-xl text-neutral-800 placeholder-neutral-400 focus:outline-hidden focus:ring-1 focus:ring-[#C88A8A] focus:border-[#C88A8A] text-sm transition-all"
+                      required
+                      id="auth-phone-input"
+                    />
+                  </div>
+                  <p className="text-[10px] text-neutral-400 mt-1 pl-1">
+                    Required so event organizers can coordinate with you.
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-[10px] font-bold text-neutral-600 uppercase tracking-wider">
+                    Password
+                  </label>
+                  {isLogin && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsForgotPassword(true);
+                        setError(null);
+                        setResetSuccess(null);
+                      }}
+                      className="text-[11px] text-[#C88A8A] hover:underline font-medium cursor-pointer"
+                    >
+                      Forgot password?
+                    </button>
+                  )}
+                </div>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-400">
+                    <Lock size={15} />
+                  </span>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full pl-10 pr-4 py-3 bg-white border border-[#EBE7DF] rounded-xl text-neutral-800 placeholder-neutral-400 focus:outline-hidden focus:ring-1 focus:ring-[#C88A8A] focus:border-[#C88A8A] text-sm transition-all"
+                    required
+                    id="auth-password-input"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className={`w-full py-3 text-xs font-semibold rounded-xl uppercase tracking-wider transition shadow-sm flex items-center justify-center gap-2 cursor-pointer mt-6 ${
+                  role === 'temple_team'
+                    ? 'bg-neutral-900 hover:bg-neutral-800 text-amber-100 disabled:bg-neutral-300'
+                    : 'bg-[#C88A8A] hover:bg-[#B57878] disabled:bg-neutral-300 text-white'
+                }`}
+                id="auth-submit-button"
+              >
+                {loading ? (
+                  <span>Processing...</span>
+                ) : (
+                  <>
+                    <span>{isLogin ? 'Log In' : 'Sign Up'}</span>
+                    <ArrowRight size={14} />
+                  </>
+                )}
+              </button>
+            </form>
+          </>
+        ) : (
+          /* Forgot Password View */
+          <div className="space-y-4">
+            <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
               <button
                 type="button"
                 onClick={() => {
-                  setRole(role === 'member' ? 'temple_team' : 'member');
+                  setIsForgotPassword(false);
                   setError(null);
+                  setResetSuccess(null);
                 }}
-                className="mt-1 self-start px-3 py-1.5 bg-neutral-900 text-amber-100 text-[11px] font-bold rounded-lg hover:bg-neutral-800 transition cursor-pointer shadow-3xs flex items-center gap-1.5"
+                className="text-xs text-neutral-500 hover:text-neutral-800 flex items-center gap-1 cursor-pointer font-medium"
               >
-                <span>🔄 Switch to {role === 'member' ? 'Temple Team' : 'Member'} Portal</span>
-                <ArrowRight size={12} />
+                <ArrowLeft size={14} /> Back to Login
               </button>
-            )}
-          </motion.div>
-        )}
-
-        {/* Input Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-[10px] font-bold text-neutral-600 uppercase tracking-wider mb-1.5">
-              {isLogin 
-                ? role === 'temple_team' ? 'Team Name or Phone' : 'Username or Phone'
-                : role === 'temple_team' ? 'Team Name' : 'Username'
-              }
-            </label>
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-400">
-                <UserIcon size={15} />
-              </span>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={isLogin
-                  ? role === 'temple_team' ? "Team Name or Phone Number" : "Username or Phone Number"
-                  : role === 'temple_team' ? "e.g., Sunday Seva Squad" : "Enter your name"
-                }
-                className="w-full pl-10 pr-4 py-3 bg-white border border-[#EBE7DF] rounded-xl text-neutral-800 placeholder-neutral-400 focus:outline-hidden focus:ring-1 focus:ring-[#C88A8A] focus:border-[#C88A8A] text-sm transition-all"
-                required
-                id="auth-name-input"
-              />
+              <span className="text-xs font-bold text-neutral-800">Reset Password</span>
             </div>
-          </div>
 
-          {!isLogin && (
-            <div>
-              <label className="block text-[10px] font-bold text-neutral-600 uppercase tracking-wider mb-1.5">
-                Phone Number
-              </label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-400">
-                  <Phone size={15} />
-                </span>
-                <input
-                  type="tel"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="e.g., 5551234567"
-                  className="w-full pl-10 pr-4 py-3 bg-white border border-[#EBE7DF] rounded-xl text-neutral-800 placeholder-neutral-400 focus:outline-hidden focus:ring-1 focus:ring-[#C88A8A] focus:border-[#C88A8A] text-sm transition-all"
-                  required
-                  id="auth-phone-input"
-                />
+            {error && (
+              <div className="p-3.5 bg-red-50 border border-red-200 text-red-900 rounded-2xl text-xs font-semibold">
+                ⚠️ {error}
               </div>
-              <p className="text-[10px] text-neutral-400 mt-1 pl-1">
-                Required so event organizers can coordinate with you.
-              </p>
-            </div>
-          )}
-
-          <div>
-            <label className="block text-[10px] font-bold text-neutral-600 uppercase tracking-wider mb-1.5">
-              Password
-            </label>
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-400">
-                <Lock size={15} />
-              </span>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full pl-10 pr-4 py-3 bg-white border border-[#EBE7DF] rounded-xl text-neutral-800 placeholder-neutral-400 focus:outline-hidden focus:ring-1 focus:ring-[#C88A8A] focus:border-[#C88A8A] text-sm transition-all"
-                required
-                id="auth-password-input"
-              />
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className={`w-full py-3 text-xs font-semibold rounded-xl uppercase tracking-wider transition shadow-sm flex items-center justify-center gap-2 cursor-pointer mt-6 ${
-              role === 'temple_team'
-                ? 'bg-neutral-900 hover:bg-neutral-800 text-amber-100 disabled:bg-neutral-300'
-                : 'bg-[#C88A8A] hover:bg-[#B57878] disabled:bg-neutral-300 text-white'
-            }`}
-            id="auth-submit-button"
-          >
-            {loading ? (
-              <span>Processing...</span>
-            ) : (
-              <>
-                <span>{isLogin ? 'Log In' : 'Sign Up'}</span>
-                <ArrowRight size={14} />
-              </>
             )}
-          </button>
-        </form>
+
+            {resetSuccess && (
+              <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-semibold flex items-center gap-2">
+                <Check size={16} className="text-emerald-600 shrink-0" />
+                <span>{resetSuccess}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-bold text-neutral-600 uppercase tracking-wider mb-1.5">
+                  {role === 'temple_team' ? 'Team Name or Username' : 'Username'}
+                </label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-400">
+                    <UserIcon size={15} />
+                  </span>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Enter account name"
+                    className="w-full pl-10 pr-4 py-3 bg-white border border-[#EBE7DF] rounded-xl text-neutral-800 placeholder-neutral-400 focus:outline-hidden focus:ring-1 focus:ring-[#C88A8A] text-sm"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-neutral-600 uppercase tracking-wider mb-1.5">
+                  Registered Phone Number
+                </label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-400">
+                    <Phone size={15} />
+                  </span>
+                  <input
+                    type="tel"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder="Enter phone number"
+                    className="w-full pl-10 pr-4 py-3 bg-white border border-[#EBE7DF] rounded-xl text-neutral-800 placeholder-neutral-400 focus:outline-hidden focus:ring-1 focus:ring-[#C88A8A] text-sm"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-neutral-600 uppercase tracking-wider mb-1.5">
+                  New Password
+                </label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-400">
+                    <Lock size={15} />
+                  </span>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter new password"
+                    className="w-full pl-10 pr-4 py-3 bg-white border border-[#EBE7DF] rounded-xl text-neutral-800 placeholder-neutral-400 focus:outline-hidden focus:ring-1 focus:ring-[#C88A8A] text-sm"
+                    required
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className={`w-full py-3 text-xs font-semibold rounded-xl uppercase tracking-wider transition shadow-sm flex items-center justify-center gap-2 cursor-pointer mt-4 ${
+                  role === 'temple_team'
+                    ? 'bg-neutral-900 hover:bg-neutral-800 text-amber-100 disabled:bg-neutral-300'
+                    : 'bg-[#C88A8A] hover:bg-[#B57878] disabled:bg-neutral-300 text-white'
+                }`}
+              >
+                {loading ? 'Updating...' : 'Set New Password'}
+              </button>
+            </form>
+          </div>
+        )}
 
         <div className="text-center pt-2 border-t border-neutral-100 space-y-2">
           <p className="text-[10px] text-neutral-400 font-mono">
@@ -350,3 +484,4 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     </div>
   );
 }
+

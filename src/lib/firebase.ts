@@ -451,23 +451,7 @@ export async function loginUser(
   const processUserList = (allUsers: User[]): User => {
     const roleUsers = allUsers.filter(u => u.role === role);
     
-    // 1. If no users exist for this role at all
-    if (roleUsers.length === 0) {
-      const otherRole = role === 'member' ? 'temple_team' : 'member';
-      const userInOtherRole = allUsers.find(u => 
-        u.role === otherRole && (
-          (u.name && u.name.trim().toLowerCase() === inputLower) ||
-          (u.phoneNumber && u.phoneNumber.trim() === trimmedInput) ||
-          (inputDigits.length >= 7 && u.phoneNumber && u.phoneNumber.replace(/\D/g, '') === inputDigits)
-        )
-      );
-      if (userInOtherRole) {
-        throw new Error(`This account is registered under ${otherRole === 'member' ? 'Member Access' : 'Temple Team Access'}. Please switch access tabs above.`);
-      }
-      throw new Error(`No ${role === 'member' ? 'Member' : 'Temple Team'} accounts exist on this deployment yet. Please click 'Sign Up' above to create an account!`);
-    }
-
-    // 2. Search for matching user in current role
+    // Search for matching user in current role
     const foundUser = roleUsers.find(u => {
       const matchName = u.name && u.name.trim().toLowerCase() === inputLower;
       const matchPhoneExact = u.phoneNumber && u.phoneNumber.trim() === trimmedInput;
@@ -476,23 +460,12 @@ export async function loginUser(
     });
 
     if (!foundUser) {
-      const otherRole = role === 'member' ? 'temple_team' : 'member';
-      const userInOtherRole = allUsers.find(u => 
-        u.role === otherRole && (
-          (u.name && u.name.trim().toLowerCase() === inputLower) ||
-          (u.phoneNumber && u.phoneNumber.trim() === trimmedInput) ||
-          (inputDigits.length >= 7 && u.phoneNumber && u.phoneNumber.replace(/\D/g, '') === inputDigits)
-        )
-      );
-      if (userInOtherRole) {
-        throw new Error(`This account is registered under ${otherRole === 'member' ? 'Member Access' : 'Temple Team Access'}. Please switch access tabs above.`);
-      }
-      throw new Error(`Account '${trimmedInput}' not found. Please click 'Sign Up' above to create your account.`);
+      throw new Error("User not found");
     }
 
-    // 3. Verify password
+    // Verify password
     if (foundUser.password !== password) {
-      throw new Error(`Incorrect password for '${foundUser.name}'. Please check your password and try again.`);
+      throw new Error("Password wrong");
     }
 
     return foundUser;
@@ -530,15 +503,75 @@ export async function loginUser(
   } catch (e: any) {
     console.warn("Firebase query failed, trying local storage fallback:", e);
     if (
-      e.message.includes("not found") ||
-      e.message.includes("Incorrect password") ||
-      e.message.includes("registered under") ||
-      e.message.includes("exist on this deployment yet") ||
+      e.message === "User not found" ||
+      e.message === "Password wrong" ||
       e.message === "Username/phone and password are required"
     ) {
       throw e;
     }
     return loginLocally();
+  }
+}
+
+export async function resetUserPassword(
+  nameOrPhone: string,
+  phoneNumber: string,
+  newPassword: string,
+  role: 'member' | 'temple_team'
+): Promise<void> {
+  const trimmedInput = nameOrPhone.trim().toLowerCase();
+  const trimmedPhone = phoneNumber.trim();
+  const phoneDigits = trimmedPhone.replace(/\D/g, '');
+
+  if (!trimmedInput || !trimmedPhone || !newPassword) {
+    throw new Error("All fields are required to reset password");
+  }
+
+  let userFound = false;
+
+  // 1. Local Storage update
+  const savedLocal = localStorage.getItem('gather_users_local');
+  const localUsers: User[] = savedLocal ? JSON.parse(savedLocal) : [];
+  const localIdx = localUsers.findIndex(u => {
+    if (u.role !== role) return false;
+    const matchName = u.name && u.name.trim().toLowerCase() === trimmedInput;
+    const matchPhoneExact = u.phoneNumber && u.phoneNumber.trim() === trimmedPhone;
+    const matchPhoneDigits = u.phoneNumber && phoneDigits.length >= 7 && u.phoneNumber.replace(/\D/g, '') === phoneDigits;
+    return (matchName || matchPhoneExact || matchPhoneDigits) && (matchPhoneExact || matchPhoneDigits);
+  });
+
+  if (localIdx > -1) {
+    localUsers[localIdx].password = newPassword;
+    localStorage.setItem('gather_users_local', JSON.stringify(localUsers));
+    userFound = true;
+  }
+
+  // 2. Firestore update
+  if (isFirebaseConfigured && db && isFirestoreHealthy) {
+    try {
+      const colRef = collection(db, 'users');
+      const snap = await withTimeout(getDocs(colRef), 5000);
+
+      snap.forEach(async (docSnap) => {
+        const u = docSnap.data() as User;
+        if (u.role === role) {
+          const matchName = u.name && u.name.trim().toLowerCase() === trimmedInput;
+          const matchPhoneExact = u.phoneNumber && u.phoneNumber.trim() === trimmedPhone;
+          const matchPhoneDigits = u.phoneNumber && phoneDigits.length >= 7 && u.phoneNumber.replace(/\D/g, '') === phoneDigits;
+          if ((matchName || matchPhoneExact || matchPhoneDigits) && (matchPhoneExact || matchPhoneDigits)) {
+            userFound = true;
+            const docRef = doc(db, 'users', docSnap.id);
+            await setDoc(docRef, { ...u, password: newPassword });
+          }
+        }
+      });
+    } catch (e) {
+      console.warn("Firestore password reset error:", e);
+    }
+  }
+
+  if (!userFound) {
+    throw new Error("User not found with matching username/phone");
   }
 }
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { User } from '../types';
-import { X, Save, Lock, Phone, User as UserIcon } from 'lucide-react';
+import { X, Save, Lock, Phone, User as UserIcon, KeyRound, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface SettingsModalProps {
@@ -12,8 +12,14 @@ interface SettingsModalProps {
 export default function SettingsModal({ currentUser, onClose, onSave }: SettingsModalProps) {
   const isTempleUser = currentUser.role === 'temple_team';
   const [name, setName] = useState(currentUser.name);
-  const [password, setPassword] = useState(currentUser.password);
   const [phoneNumber, setPhoneNumber] = useState(currentUser.phoneNumber);
+  
+  // Password change toggle
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPasswordText, setShowPasswordText] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -30,13 +36,23 @@ export default function SettingsModal({ currentUser, onClose, onSave }: Settings
       setError(isTempleUser ? 'Team Name is required' : 'Username is required');
       return;
     }
-    if (!password) {
-      setError('Password is required');
-      return;
-    }
     if (!trimmedPhone) {
       setError('Phone number is required');
       return;
+    }
+
+    let finalPassword = currentUser.password;
+
+    if (isChangingPassword) {
+      if (!newPassword) {
+        setError('New password is required');
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        setError('New passwords do not match');
+        return;
+      }
+      finalPassword = newPassword;
     }
 
     setLoading(true);
@@ -44,7 +60,7 @@ export default function SettingsModal({ currentUser, onClose, onSave }: Settings
       const updatedUser: User = {
         ...currentUser,
         name: trimmedName,
-        password,
+        password: finalPassword,
         phoneNumber: trimmedPhone,
       };
       await onSave(updatedUser);
@@ -86,7 +102,7 @@ export default function SettingsModal({ currentUser, onClose, onSave }: Settings
                 Account Settings
               </h2>
               <p className="text-[10px] text-neutral-500">
-                Update credentials & profile information
+                Update account details & security options
               </p>
             </div>
           </div>
@@ -143,19 +159,75 @@ export default function SettingsModal({ currentUser, onClose, onSave }: Settings
             />
           </div>
 
-          {/* Password Field */}
-          <div>
-            <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-              <Lock size={12} /> Password
-            </label>
-            <input
-              type="text"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2.5 bg-white border border-neutral-200 rounded-xl text-neutral-800 text-xs focus:outline-hidden focus:ring-1 focus:ring-neutral-400 transition-all font-mono"
-              placeholder="Your secure password"
-              required
-            />
+          {/* Change Password Option */}
+          <div className="pt-2 border-t border-neutral-200/60">
+            {!isChangingPassword ? (
+              <button
+                type="button"
+                onClick={() => setIsChangingPassword(true)}
+                className="w-full py-2 px-3 bg-white border border-neutral-200 rounded-xl text-neutral-700 hover:bg-neutral-50 text-xs font-semibold flex items-center justify-between transition cursor-pointer"
+              >
+                <span className="flex items-center gap-1.5">
+                  <KeyRound size={14} className="text-neutral-500" />
+                  Change Password
+                </span>
+                <span className="text-[10px] text-neutral-400 font-normal">Click to update</span>
+              </button>
+            ) : (
+              <div className="bg-white border border-neutral-200 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
+                  <span className="text-xs font-bold text-neutral-800 flex items-center gap-1.5">
+                    <KeyRound size={13} className="text-[#C88A8A]" /> Update Password
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsChangingPassword(false);
+                      setNewPassword('');
+                      setConfirmPassword('');
+                    }}
+                    className="text-[10px] text-neutral-400 hover:text-neutral-600 font-medium cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">
+                    New Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPasswordText ? "text" : "password"}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="w-full px-3 py-2 bg-[#FAF9F6] border border-neutral-200 rounded-xl text-neutral-800 text-xs focus:outline-hidden"
+                      placeholder="Enter new password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPasswordText(!showPasswordText)}
+                      className="absolute right-3 top-2.5 text-neutral-400 hover:text-neutral-600 cursor-pointer"
+                    >
+                      {showPasswordText ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">
+                    Confirm New Password
+                  </label>
+                  <input
+                    type={showPasswordText ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#FAF9F6] border border-neutral-200 rounded-xl text-neutral-800 text-xs focus:outline-hidden"
+                    placeholder="Re-enter new password"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Action buttons */}

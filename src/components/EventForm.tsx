@@ -21,8 +21,9 @@ export default function EventForm({ onSubmit, onClose, initialEvent, prefilledDa
   const [theme, setTheme] = useState(initialEvent?.theme || (isTempleUser ? 'Devotion Group' : ''));
   const [date, setDate] = useState(initialEvent?.date || prefilledDate || '');
   const [time, setTime] = useState(initialEvent?.time || '');
-  const [guestsCount, setGuestsCount] = useState(initialEvent?.guestsCount || 10);
+  const [guestsInput, setGuestsInput] = useState(initialEvent?.guestsCount ? String(initialEvent.guestsCount) : '10');
   const [description, setDescription] = useState(initialEvent?.description || '');
+  const [formError, setFormError] = useState<string | null>(null);
   
   // Invitation System States
   const [invitedPhones, setInvitedPhones] = useState<string[]>(initialEvent?.invitedPhones || []);
@@ -92,15 +93,44 @@ export default function EventForm({ onSubmit, onClose, initialEvent, prefilledDa
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
+
     const finalTitle = eventType === 'temple' ? 'Temple Seva' : title.trim();
-    if (!finalTitle || !date || !time) return;
+    if (!finalTitle) {
+      setFormError('Please enter a title for the gathering.');
+      return;
+    }
+    if (!date || !time) {
+      setFormError('Please select both a date and time.');
+      return;
+    }
+
+    const trimmedGuests = guestsInput.trim();
+    if (!trimmedGuests) {
+      setFormError(
+        eventType === 'temple'
+          ? 'Please enter the number of Volunteers Needed!'
+          : 'Please enter the number of Expected Guests!'
+      );
+      return;
+    }
+
+    const parsedCount = parseInt(trimmedGuests.replace(/\D/g, ''), 10);
+    if (isNaN(parsedCount) || parsedCount <= 0) {
+      setFormError(
+        eventType === 'temple'
+          ? 'Please enter a valid number of Volunteers Needed (must be greater than 0)!'
+          : 'Please enter a valid number of Expected Guests (must be greater than 0)!'
+      );
+      return;
+    }
 
     onSubmit({
       title: finalTitle,
       type: eventType === 'temple' ? 'Temple Event' : 'Fancy Potluck',
       date,
       time,
-      guestsCount,
+      guestsCount: parsedCount,
       theme: eventType === 'temple' ? currentUser.name : (theme.trim() || 'Summer Celebration'),
       description,
       eventType,
@@ -154,6 +184,18 @@ export default function EventForm({ onSubmit, onClose, initialEvent, prefilledDa
         {/* Content Wrapper */}
         <div className="p-6 overflow-y-auto space-y-6 flex-1">
 
+          {/* Form Error Banner */}
+          {formError && (
+            <motion.div
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-3.5 bg-red-50 border border-red-200 text-red-800 text-xs font-semibold rounded-2xl flex items-center gap-2"
+            >
+              <span className="w-2 h-2 rounded-full bg-red-600 shrink-0"></span>
+              <span>⚠️ {formError}</span>
+            </motion.div>
+          )}
+
           {/* Form Content */}
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Template Render block */}
@@ -193,11 +235,15 @@ export default function EventForm({ onSubmit, onClose, initialEvent, prefilledDa
                       <Users size={12} className="text-neutral-400" /> Volunteers Needed
                     </label>
                     <input
-                      type="number"
-                      min="1"
-                      max="200"
-                      value={guestsCount}
-                      onChange={(e) => setGuestsCount(Math.max(1, parseInt(e.target.value) || 0))}
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={guestsInput}
+                      onChange={(e) => {
+                        setGuestsInput(e.target.value.replace(/\D/g, ''));
+                        if (formError) setFormError(null);
+                      }}
+                      placeholder="e.g., 10"
                       className="w-full px-4 py-2 bg-white border border-neutral-200 rounded-xl text-neutral-800 focus:outline-hidden focus:ring-1 focus:ring-amber-500 focus:border-amber-500 transition-all text-xs font-semibold text-center"
                       required
                     />
@@ -269,11 +315,15 @@ export default function EventForm({ onSubmit, onClose, initialEvent, prefilledDa
                       <Users size={12} className="text-neutral-400" /> Expected Guests
                     </label>
                     <input
-                      type="number"
-                      min="1"
-                      max="200"
-                      value={guestsCount}
-                      onChange={(e) => setGuestsCount(Math.max(1, parseInt(e.target.value) || 0))}
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={guestsInput}
+                      onChange={(e) => {
+                        setGuestsInput(e.target.value.replace(/\D/g, ''));
+                        if (formError) setFormError(null);
+                      }}
+                      placeholder="e.g., 10"
                       className="w-full px-4 py-2 bg-white border border-neutral-200 rounded-xl text-neutral-800 focus:outline-hidden focus:ring-1 focus:ring-rose-500 focus:border-rose-500 transition-all text-xs font-semibold text-center"
                       required
                     />

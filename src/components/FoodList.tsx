@@ -15,6 +15,8 @@ interface FoodListProps {
 const CATEGORIES = ['Appetizer', 'Main', 'Side', 'Dessert', 'Drink', 'Other'] as const;
 
 export default function FoodList({ event, foodItems, onAddFood, onDeleteFood, onUpdateFood, currentUser }: FoodListProps) {
+  const isTemple = event.eventType === 'temple' || currentUser?.role === 'temple_team';
+
   // Manual Entry Form State
   const [name, setName] = useState('');
   const [category, setCategory] = useState<typeof CATEGORIES[number]>('Main');
@@ -41,7 +43,7 @@ export default function FoodList({ event, foodItems, onAddFood, onDeleteFood, on
 
     onAddFood({
       name: name.trim(),
-      category,
+      category: isTemple ? 'Main' : category,
       quantity,
       unit,
       assignedTo: assignedTo.trim() || 'Host',
@@ -68,7 +70,7 @@ export default function FoodList({ event, foodItems, onAddFood, onDeleteFood, on
     if (!editName.trim() || editQuantity <= 0) return;
     onUpdateFood(id, {
       name: editName.trim(),
-      category: editCategory,
+      category: isTemple ? 'Main' : editCategory,
       quantity: editQuantity,
       unit: editUnit,
       assignedTo: editAssignedTo.trim() || 'Host',
@@ -82,7 +84,9 @@ export default function FoodList({ event, foodItems, onAddFood, onDeleteFood, on
       {/* Title Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-[#EBE7DF] rounded-3xl p-5 shadow-xs">
         <div>
-          <h2 className="font-sans font-medium text-lg text-neutral-800">Planned Food & Drinks</h2>
+          <h2 className="font-sans font-medium text-lg text-neutral-800">
+            {isTemple ? 'Planned Temple Food & Offerings' : 'Planned Food & Drinks'}
+          </h2>
           <p className="text-xs text-neutral-500 mt-0.5">Define your menu items and catering quantities for {event.guestsCount} guests.</p>
         </div>
       </div>
@@ -101,25 +105,27 @@ export default function FoodList({ event, foodItems, onAddFood, onDeleteFood, on
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Lavender Shortbread, Lemonade"
+                placeholder={isTemple ? "e.g. Sabudana Khichdi, Kheer, Sweet Rice" : "e.g. Lavender Shortbread, Lemonade"}
                 className="w-full px-4 py-2.5 bg-[#FAF9F6] border border-[#EBE7DF] rounded-xl text-xs text-neutral-800 placeholder-neutral-400 focus:outline-hidden focus:ring-1 focus:ring-[#C88A8A] transition-all"
                 required
                 id="food-name-input"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1">Category</label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value as any)}
-                  className="w-full px-3 py-2.5 bg-[#FAF9F6] border border-[#EBE7DF] rounded-xl text-xs text-neutral-800 focus:outline-hidden"
-                  id="food-category-select"
-                >
-                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
+            <div className={`grid ${isTemple ? 'grid-cols-1' : 'grid-cols-2'} gap-3`}>
+              {!isTemple && (
+                <div>
+                  <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1">Category</label>
+                  <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value as any)}
+                    className="w-full px-3 py-2.5 bg-[#FAF9F6] border border-[#EBE7DF] rounded-xl text-xs text-neutral-800 focus:outline-hidden"
+                    id="food-category-select"
+                  >
+                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+              )}
 
               <div>
                 <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1">Quantity</label>
@@ -160,7 +166,7 @@ export default function FoodList({ event, foodItems, onAddFood, onDeleteFood, on
                   type="text"
                   value={assignedTo}
                   onChange={(e) => setAssignedTo(e.target.value)}
-                  placeholder="Host or Guest Name"
+                  placeholder="Host or Volunteer Name"
                   className="w-full px-3 py-2.5 bg-[#FAF9F6] border border-[#EBE7DF] rounded-xl text-xs text-neutral-800 focus:outline-hidden"
                   id="food-assignee-input"
                 />
@@ -172,7 +178,7 @@ export default function FoodList({ event, foodItems, onAddFood, onDeleteFood, on
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="e.g., Garnish with fresh organic mint, keep chilled"
+                placeholder="e.g., Prepared in clean devotional kitchen, no onion or garlic"
                 className="w-full px-3 py-2 bg-[#FAF9F6] border border-[#EBE7DF] rounded-xl text-xs text-neutral-800 placeholder-neutral-400 focus:outline-hidden resize-none h-16"
                 id="food-notes-textarea"
               />
@@ -229,7 +235,7 @@ export default function FoodList({ event, foodItems, onAddFood, onDeleteFood, on
                     >
                       {isEditing ? (
                         <div className="space-y-3">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className={`grid ${isTemple ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'} gap-3`}>
                             <input
                               type="text"
                               value={editName}
@@ -237,14 +243,16 @@ export default function FoodList({ event, foodItems, onAddFood, onDeleteFood, on
                               className="px-3 py-1.5 bg-white border border-[#EBE7DF] rounded-lg text-xs"
                               id={`edit-item-name-${item.id}`}
                             />
-                            <select
-                              value={editCategory}
-                              onChange={(e) => setEditCategory(e.target.value as any)}
-                              className="px-3 py-1.5 bg-white border border-[#EBE7DF] rounded-lg text-xs"
-                              id={`edit-item-category-${item.id}`}
-                            >
-                              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
+                            {!isTemple && (
+                              <select
+                                value={editCategory}
+                                onChange={(e) => setEditCategory(e.target.value as any)}
+                                className="px-3 py-1.5 bg-white border border-[#EBE7DF] rounded-lg text-xs"
+                                id={`edit-item-category-${item.id}`}
+                              >
+                                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                              </select>
+                            )}
                           </div>
                           
                           <div className="grid grid-cols-3 gap-2">
@@ -302,9 +310,11 @@ export default function FoodList({ event, foodItems, onAddFood, onDeleteFood, on
                           <div className="flex-1 min-w-[150px] space-y-1">
                             <div className="flex items-center gap-2">
                               <span className="text-xs font-semibold text-neutral-800">{item.name}</span>
-                              <span className="text-[9px] bg-neutral-100 text-neutral-500 border border-neutral-200 px-1.5 py-0.5 rounded-md font-medium uppercase font-sans">
-                                {item.category}
-                              </span>
+                              {!isTemple && (
+                                <span className="text-[9px] bg-neutral-100 text-neutral-500 border border-neutral-200 px-1.5 py-0.5 rounded-md font-medium uppercase font-sans">
+                                  {item.category}
+                                </span>
+                              )}
                             </div>
                             
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-neutral-500 font-medium">
