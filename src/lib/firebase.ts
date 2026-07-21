@@ -14,20 +14,25 @@ import {
 import { User } from '../types';
 
 
+import appletConfig from '../../firebase-applet-config.json';
+
 const metaEnv = (import.meta as any).env || {};
 
+const configFallback = (appletConfig as any) || {};
+
 const firebaseConfig = {
-  apiKey: metaEnv.VITE_FIREBASE_API_KEY || '',
-  authDomain: metaEnv.VITE_FIREBASE_AUTH_DOMAIN || '',
-  projectId: metaEnv.VITE_FIREBASE_PROJECT_ID || '',
-  storageBucket: metaEnv.VITE_FIREBASE_STORAGE_BUCKET || '',
-  messagingSenderId: metaEnv.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
-  appId: metaEnv.VITE_FIREBASE_APP_ID || ''
+  apiKey: metaEnv.VITE_FIREBASE_API_KEY || configFallback.apiKey || '',
+  authDomain: metaEnv.VITE_FIREBASE_AUTH_DOMAIN || configFallback.authDomain || '',
+  projectId: metaEnv.VITE_FIREBASE_PROJECT_ID || configFallback.projectId || '',
+  storageBucket: metaEnv.VITE_FIREBASE_STORAGE_BUCKET || configFallback.storageBucket || '',
+  messagingSenderId: metaEnv.VITE_FIREBASE_MESSAGING_SENDER_ID || configFallback.messagingSenderId || '',
+  appId: metaEnv.VITE_FIREBASE_APP_ID || configFallback.appId || '',
+  firestoreDatabaseId: metaEnv.VITE_FIREBASE_FIRESTORE_DATABASE_ID || configFallback.firestoreDatabaseId || ''
 };
 
 export const isFirebaseConfigured = !!(
-  metaEnv.VITE_FIREBASE_API_KEY && 
-  metaEnv.VITE_FIREBASE_PROJECT_ID
+  firebaseConfig.apiKey && 
+  firebaseConfig.projectId
 );
 
 let app;
@@ -36,7 +41,9 @@ let db: any = null;
 if (isFirebaseConfigured) {
   try {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-    db = getFirestore(app);
+    db = firebaseConfig.firestoreDatabaseId 
+      ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+      : getFirestore(app);
   } catch (error) {
     console.error('Firebase initialization failed:', error);
   }
@@ -357,22 +364,33 @@ export async function registerUser(
     throw new Error("Name, password, and phone number are required");
   }
 
-  const registerLocally = () => {
-    const saved = localStorage.getItem('gather_users_local');
-    const users: User[] = saved ? JSON.parse(saved) : [];
-    if (users.some(u => u.name.toLowerCase() === trimmedName.toLowerCase())) {
-      throw new Error("A user with this name already exists");
+  const nameLower = trimmedName.toLowerCase();
+  const phoneDigits = trimmedPhone.replace(/\D/g, '');
+
+  const checkDuplicatesAndBuild = (existingUsers: User[]): User => {
+    if (existingUsers.some(u => u.name && u.name.trim().toLowerCase() === nameLower)) {
+      throw new Error("A user with this name already exists. Please pick a different name or log in.");
     }
-    if (users.some(u => u.phoneNumber === trimmedPhone)) {
-      throw new Error("A user with this phone number already exists");
+    if (existingUsers.some(u => {
+      const uDigits = u.phoneNumber ? u.phoneNumber.replace(/\D/g, '') : '';
+      return u.phoneNumber === trimmedPhone || (phoneDigits.length >= 7 && uDigits === phoneDigits);
+    })) {
+      throw new Error("A user with this phone number already exists. Please log in instead.");
     }
-    const newUser: User = {
+
+    return {
       id: `user-${Date.now()}`,
       name: trimmedName,
       password: password,
       phoneNumber: trimmedPhone,
       role: role
     };
+  };
+
+  const registerLocally = () => {
+    const saved = localStorage.getItem('gather_users_local');
+    const users: User[] = saved ? JSON.parse(saved) : [];
+    const newUser = checkDuplicatesAndBuild(users);
     users.push(newUser);
     localStorage.setItem('gather_users_local', JSON.stringify(users));
     return newUser;
@@ -384,47 +402,36 @@ export async function registerUser(
 
   try {
     const colRef = collection(db, 'users');
-    
-    // Check name
-    const qName = query(colRef, where('name', '==', trimmedName));
-    const snapName = await withTimeout(getDocs(qName), 5000);
-    if (!snapName.empty) {
-      throw new Error("A user with this name already exists");
-    }
+    const snap = await withTimeout(getDocs(colRef), 5000);
+    const firestoreUsers: User[] = [];
+    snap.forEach(docSnap => firestoreUsers.push(docSnap.data() as User));
 
-    // Check phone
-    const qPhone = query(colRef, where('phoneNumber', '==', trimmedPhone));
-    const snapPhone = await withTimeout(getDocs(qPhone), 5000);
-    if (!snapPhone.empty) {
-      throw new Error("A user with this phone number already exists");
-    }
+    const savedLocal = localStorage.getItem('gather_users_local');
+    const localUsers: User[] = savedLocal ? JSON.parse(savedLocal) : [];
+    const allUsers = [...firestoreUsers, ...localUsers];
 
-    const newUser: User = {
-      id: `user-${Date.now()}`,
-      name: trimmedName,
-      password: password,
-      phoneNumber: trimmedPhone,
-      role: role
-    };
+    const newUser = checkDuplicatesAndBuild(allUsers);
 
     const docRef = doc(db, 'users', newUser.id);
     await withTimeout(setDoc(docRef, newUser), 5000);
+
+    // Save locally as backup
+    const usersLocal: User[] = savedLocal ? JSON.parse(savedLocal) : [];
+    if (!usersLocal.some(u => u.id === newUser.id)) {
+      usersLocal.push(newUser);
+      localStorage.setItem('gather_users_local', JSON.stringify(usersLocal));
+    }
 
     return newUser;
   } catch (e: any) {
     console.warn("Firebase registration failed, falling back to local storage:", e);
     if (
-      e.message === "A user with this name already exists" ||
-      e.message === "A user with this phone number already exists" ||
+      e.message.includes("already exists") ||
       e.message === "Name, password, and phone number are required"
     ) {
       throw e;
     }
-    try {
-      return registerLocally();
-    } catch (localError: any) {
-      throw localError;
-    }
+    return registerLocally();
   }
 }
 
@@ -438,19 +445,63 @@ export async function loginUser(
     throw new Error("Username/phone and password are required");
   }
 
+  const inputLower = trimmedInput.toLowerCase();
+  const inputDigits = trimmedInput.replace(/\D/g, '');
+
+  const processUserList = (allUsers: User[]): User => {
+    const roleUsers = allUsers.filter(u => u.role === role);
+    
+    // 1. If no users exist for this role at all
+    if (roleUsers.length === 0) {
+      const otherRole = role === 'member' ? 'temple_team' : 'member';
+      const userInOtherRole = allUsers.find(u => 
+        u.role === otherRole && (
+          (u.name && u.name.trim().toLowerCase() === inputLower) ||
+          (u.phoneNumber && u.phoneNumber.trim() === trimmedInput) ||
+          (inputDigits.length >= 7 && u.phoneNumber && u.phoneNumber.replace(/\D/g, '') === inputDigits)
+        )
+      );
+      if (userInOtherRole) {
+        throw new Error(`This account is registered under ${otherRole === 'member' ? 'Member Access' : 'Temple Team Access'}. Please switch access tabs above.`);
+      }
+      throw new Error(`No ${role === 'member' ? 'Member' : 'Temple Team'} accounts exist on this deployment yet. Please click 'Sign Up' above to create an account!`);
+    }
+
+    // 2. Search for matching user in current role
+    const foundUser = roleUsers.find(u => {
+      const matchName = u.name && u.name.trim().toLowerCase() === inputLower;
+      const matchPhoneExact = u.phoneNumber && u.phoneNumber.trim() === trimmedInput;
+      const matchPhoneDigits = u.phoneNumber && inputDigits.length >= 7 && u.phoneNumber.replace(/\D/g, '') === inputDigits;
+      return matchName || matchPhoneExact || matchPhoneDigits;
+    });
+
+    if (!foundUser) {
+      const otherRole = role === 'member' ? 'temple_team' : 'member';
+      const userInOtherRole = allUsers.find(u => 
+        u.role === otherRole && (
+          (u.name && u.name.trim().toLowerCase() === inputLower) ||
+          (u.phoneNumber && u.phoneNumber.trim() === trimmedInput) ||
+          (inputDigits.length >= 7 && u.phoneNumber && u.phoneNumber.replace(/\D/g, '') === inputDigits)
+        )
+      );
+      if (userInOtherRole) {
+        throw new Error(`This account is registered under ${otherRole === 'member' ? 'Member Access' : 'Temple Team Access'}. Please switch access tabs above.`);
+      }
+      throw new Error(`Account '${trimmedInput}' not found. Please click 'Sign Up' above to create your account.`);
+    }
+
+    // 3. Verify password
+    if (foundUser.password !== password) {
+      throw new Error(`Incorrect password for '${foundUser.name}'. Please check your password and try again.`);
+    }
+
+    return foundUser;
+  };
+
   const loginLocally = () => {
     const saved = localStorage.getItem('gather_users_local');
     const users: User[] = saved ? JSON.parse(saved) : [];
-    const foundUser = users.find(
-      u =>
-        (u.name.toLowerCase() === trimmedInput.toLowerCase() || u.phoneNumber === trimmedInput) &&
-        u.password === password &&
-        u.role === role
-    );
-    if (!foundUser) {
-      throw new Error(`Invalid credentials or role for ${role === 'member' ? 'Members' : 'Temple Team'}`);
-    }
-    return foundUser;
+    return processUserList(users);
   };
 
   if (!isFirebaseConfigured || !db || !isFirestoreHealthy) {
@@ -459,52 +510,35 @@ export async function loginUser(
 
   try {
     const colRef = collection(db, 'users');
-    let q = query(
-      colRef,
-      where('name', '==', trimmedInput),
-      where('role', '==', role)
-    );
-    let querySnapshot = await withTimeout(getDocs(q), 5000);
+    const querySnapshot = await withTimeout(getDocs(colRef), 5000);
+    const firestoreUsers: User[] = [];
+    querySnapshot.forEach(docSnap => {
+      firestoreUsers.push(docSnap.data() as User);
+    });
 
-    if (querySnapshot.empty) {
-      q = query(
-        colRef,
-        where('phoneNumber', '==', trimmedInput),
-        where('role', '==', role)
-      );
-      querySnapshot = await withTimeout(getDocs(q), 5000);
-    }
-
-    if (querySnapshot.empty) {
-      throw new Error(`Invalid credentials or role for ${role === 'member' ? 'Members' : 'Temple Team'}`);
-    }
-
-    let foundUser: User | null = null;
-    querySnapshot.forEach((docSnap) => {
-      const data = docSnap.data() as User;
-      if (data.password === password) {
-        foundUser = data;
+    const savedLocal = localStorage.getItem('gather_users_local');
+    const localUsers: User[] = savedLocal ? JSON.parse(savedLocal) : [];
+    
+    const allUsers = [...firestoreUsers];
+    localUsers.forEach(lu => {
+      if (!allUsers.some(fu => fu.id === lu.id || (fu.phoneNumber && lu.phoneNumber && fu.phoneNumber === lu.phoneNumber))) {
+        allUsers.push(lu);
       }
     });
 
-    if (!foundUser) {
-      throw new Error(`Invalid credentials or role for ${role === 'member' ? 'Members' : 'Temple Team'}`);
-    }
-
-    return foundUser;
+    return processUserList(allUsers);
   } catch (e: any) {
-    console.warn("Firebase login failed, trying local storage fallback:", e);
+    console.warn("Firebase query failed, trying local storage fallback:", e);
     if (
-      e.message.startsWith("Invalid credentials") ||
+      e.message.includes("not found") ||
+      e.message.includes("Incorrect password") ||
+      e.message.includes("registered under") ||
+      e.message.includes("exist on this deployment yet") ||
       e.message === "Username/phone and password are required"
     ) {
       throw e;
     }
-    try {
-      return loginLocally();
-    } catch {
-      throw new Error(`Invalid credentials or role for ${role === 'member' ? 'Members' : 'Temple Team'}`);
-    }
+    return loginLocally();
   }
 }
 

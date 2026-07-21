@@ -19,136 +19,6 @@ import {
   isFirebaseConfigured
 } from './lib/firebase';
 
-// Default gorgeous seed data for welcoming users on first visit
-const DEFAULT_EVENT: Event = {
-  id: 'default-sisterhood-brunch',
-  title: 'Sunday Sisterhood Brunch',
-  type: 'Brunch',
-  date: '2026-08-16',
-  time: '11:00',
-  guestsCount: 12,
-  theme: 'Blush & Blooms Garden',
-  description: 'A cozy Sunday backyard garden gathering to celebrate achievements, share stories, and catch up over warm recipes and sparkling rose water teas.',
-  createdAt: new Date().toISOString()
-};
-
-const DEFAULT_FOODS: FoodItem[] = [
-  {
-    id: 'food-1',
-    eventId: 'default-sisterhood-brunch',
-    name: 'Fresh Peach & Basil Salad',
-    category: 'Appetizer',
-    quantity: 15,
-    unit: 'cups',
-    assignedTo: 'Host',
-    notes: 'Drizzle with light raspberry vinaigrette'
-  },
-  {
-    id: 'food-2',
-    eventId: 'default-sisterhood-brunch',
-    name: 'Mini Caprese Frittata Bites',
-    category: 'Main',
-    quantity: 24,
-    unit: 'bites',
-    assignedTo: 'Sarah',
-    notes: 'Sarah is bringing these warm in a woven basket'
-  },
-  {
-    id: 'food-3',
-    eventId: 'default-sisterhood-brunch',
-    name: 'Lemon Rosemary Scones with Butter',
-    category: 'Side',
-    quantity: 16,
-    unit: 'mini scones',
-    assignedTo: 'Elena',
-    notes: 'Elena will pick up fresh from the local corner bakery'
-  },
-  {
-    id: 'food-4',
-    eventId: 'default-sisterhood-brunch',
-    name: 'Gluten-Free Almond Berry Cake',
-    category: 'Dessert',
-    quantity: 12,
-    unit: 'slices',
-    assignedTo: 'Host',
-    notes: 'Garnish with powdered sugar and organic lavender petals'
-  },
-  {
-    id: 'food-5',
-    eventId: 'default-sisterhood-brunch',
-    name: 'Rose Hibiscus Sparkling Mocktail',
-    category: 'Drink',
-    quantity: 3,
-    unit: 'pitchers',
-    assignedTo: 'Maya',
-    notes: 'Garnish with organic mint sprigs and sliced strawberries'
-  }
-];
-
-const DEFAULT_TASKS: Task[] = [
-  { id: 'task-1', eventId: 'default-sisterhood-brunch', title: 'Send gorgeous digital watercolor invitations', timelineStage: '1 week before', completed: true },
-  { id: 'task-2', eventId: 'default-sisterhood-brunch', title: 'Confirm RSVP count and final event arrangements', timelineStage: '1 week before', completed: true },
-  { id: 'task-3', eventId: 'default-sisterhood-brunch', title: 'Clean patio seating & wipe hosting tables', timelineStage: '3 days before', completed: false },
-  { id: 'task-4', eventId: 'default-sisterhood-brunch', title: 'Gather small ceramic vases & cut garden greenery', timelineStage: '3 days before', completed: false },
-  { id: 'task-5', eventId: 'default-sisterhood-brunch', title: 'Pre-chill waters, white tea bags, and berry reductions', timelineStage: '1 day before', completed: false },
-  { id: 'task-6', eventId: 'default-sisterhood-brunch', title: 'Assemble fresh peach & salad bowls', timelineStage: 'Morning of', completed: false },
-  { id: 'task-7', eventId: 'default-sisterhood-brunch', title: 'Turn on soft instrumental jazz acoustics playlist', timelineStage: 'During event', completed: false }
-];
-
-const DEFAULT_TEMPLE_EVENT: Event = {
-  id: 'default-temple-seva',
-  title: 'Sunday Temple Seva',
-  type: 'Temple Event',
-  date: '2026-08-16',
-  time: '08:00',
-  guestsCount: 15,
-  theme: 'Shri Krishna Bhakti Team',
-  description: 'Devotional kitchen seva for Sunday Evening Feast. Please ensure strict cleanliness. No onions or garlic. All ingredients must be fresh and offered with pure devotion.',
-  createdAt: new Date().toISOString(),
-  eventType: 'temple'
-};
-
-const DEFAULT_TEMPLE_FOODS: FoodItem[] = [
-  {
-    id: 't-food-1',
-    eventId: 'default-temple-seva',
-    name: 'Saffron Badam Kheer (Rice Pudding)',
-    category: 'Dessert',
-    quantity: 100,
-    unit: 'servings',
-    assignedTo: 'Shri Krishna Bhakti Team',
-    notes: 'To be prepared in the main temple kitchen. Milk, saffron, almonds, and basmati rice.'
-  },
-  {
-    id: 't-food-2',
-    eventId: 'default-temple-seva',
-    name: 'Mixed Vegetable Subji (No Onion/Garlic)',
-    category: 'Main',
-    quantity: 150,
-    unit: 'portions',
-    assignedTo: 'Ramesh Patel',
-    notes: 'Potatoes, cauliflower, peas, and fresh paneer cubes with traditional spices.'
-  },
-  {
-    id: 't-food-3',
-    eventId: 'default-temple-seva',
-    name: 'Jeera Rice & Ghee',
-    category: 'Side',
-    quantity: 20,
-    unit: 'kg',
-    assignedTo: 'Sita Devi',
-    notes: 'Using premium long-grain Basmati rice and pure Desi ghee.'
-  }
-];
-
-const DEFAULT_TEMPLE_TASKS: Task[] = [
-  { id: 't-task-1', eventId: 'default-temple-seva', title: 'Clean and sanitize the holy kitchen (seva preparation)', timelineStage: '1 week before', completed: true },
-  { id: 't-task-2', eventId: 'default-temple-seva', title: 'Procure pure ingredients and fresh vegetables from wholesale', timelineStage: '3 days before', completed: true },
-  { id: 't-task-3', eventId: 'default-temple-seva', title: 'Boil and reduce milk for the Saffron Kheer', timelineStage: '1 day before', completed: false },
-  { id: 't-task-4', eventId: 'default-temple-seva', title: 'Chop and prep vegetables with chanting devotional songs', timelineStage: 'Morning of', completed: false },
-  { id: 't-task-5', eventId: 'default-temple-seva', title: 'Offer Prasadam to the Deities (Bhog offering)', timelineStage: 'During event', completed: false }
-];
-
 export default function App() {
   // Authentication State
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
@@ -197,14 +67,9 @@ export default function App() {
   useEffect(() => {
     if (!currentUser) return;
 
-    const isTempleUser = currentUser.role === 'temple_team';
-    const initialEvents = isTempleUser ? [DEFAULT_TEMPLE_EVENT] : [DEFAULT_EVENT];
-    const initialFoods = isTempleUser ? DEFAULT_TEMPLE_FOODS : DEFAULT_FOODS;
-    const initialTasks = isTempleUser ? DEFAULT_TEMPLE_TASKS : DEFAULT_TASKS;
-
-    const unsubEvents = subscribeToCollection<Event>('events', 'gather_events', initialEvents, setEvents);
-    const unsubFoods = subscribeToCollection<FoodItem>('foods', 'gather_foods', initialFoods, setFoodItems);
-    const unsubTasks = subscribeToCollection<Task>('tasks', 'gather_tasks', initialTasks, setTasks);
+    const unsubEvents = subscribeToCollection<Event>('events', 'gather_events', [], setEvents);
+    const unsubFoods = subscribeToCollection<FoodItem>('foods', 'gather_foods', [], setFoodItems);
+    const unsubTasks = subscribeToCollection<Task>('tasks', 'gather_tasks', [], setTasks);
 
     return () => {
       unsubEvents();

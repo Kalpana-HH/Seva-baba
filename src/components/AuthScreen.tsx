@@ -208,11 +208,42 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="p-3.5 bg-red-50 border border-red-200 text-red-900 rounded-2xl text-xs font-semibold flex items-start gap-2.5"
+            className="p-3.5 bg-red-50 border border-red-200 text-red-900 rounded-2xl text-xs font-semibold flex flex-col gap-2"
             id="auth-error-alert"
           >
-            <span className="mt-0.5 w-1.5 h-1.5 rounded-full bg-red-600 shrink-0"></span>
-            <span>{error}</span>
+            <div className="flex items-start gap-2.5">
+              <span className="mt-1 w-1.5 h-1.5 rounded-full bg-red-600 shrink-0"></span>
+              <span className="leading-relaxed">{error}</span>
+            </div>
+
+            {/* Smart Action Buttons based on error message */}
+            {(error.includes("Sign Up") || error.includes("not found") || error.includes("exist on this deployment yet")) && isLogin && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLogin(false);
+                  setError(null);
+                }}
+                className="mt-1 self-start px-3 py-1.5 bg-red-600 text-white text-[11px] font-bold rounded-lg hover:bg-red-700 transition cursor-pointer shadow-3xs flex items-center gap-1.5"
+              >
+                <span>✨ Switch to Sign Up tab</span>
+                <ArrowRight size={12} />
+              </button>
+            )}
+
+            {error.includes("registered under") && (
+              <button
+                type="button"
+                onClick={() => {
+                  setRole(role === 'member' ? 'temple_team' : 'member');
+                  setError(null);
+                }}
+                className="mt-1 self-start px-3 py-1.5 bg-neutral-900 text-amber-100 text-[11px] font-bold rounded-lg hover:bg-neutral-800 transition cursor-pointer shadow-3xs flex items-center gap-1.5"
+              >
+                <span>🔄 Switch to {role === 'member' ? 'Temple Team' : 'Member'} Portal</span>
+                <ArrowRight size={12} />
+              </button>
+            )}
           </motion.div>
         )}
 
