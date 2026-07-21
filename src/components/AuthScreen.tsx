@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { User } from '../types';
-import { registerUser, loginUser, wipeAllDatabaseAndStorage } from '../lib/firebase';
+import { registerUser, loginUser, wipeAllDatabaseAndStorage, getFirebaseStatus } from '../lib/firebase';
 import { KeyRound, User as UserIcon, Lock, ArrowRight, Sparkles, Phone, Compass, Landmark } from 'lucide-react';
 
 interface AuthScreenProps {
@@ -10,6 +10,7 @@ interface AuthScreenProps {
 
 export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
   const [role, setRole] = useState<'member' | 'temple_team'>('member');
+  const { configured, healthy } = getFirebaseStatus();
   const [isLogin, setIsLogin] = useState(true);
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
@@ -134,6 +135,32 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
             </p>
             <p className="text-[10px] text-amber-950 font-medium leading-relaxed">
               Only the team leader should log in using the Temple Team credentials.
+            </p>
+          </div>
+        )}
+
+        {/* Firebase Environment Status */}
+        {(!configured || !healthy) && (
+          <div className="bg-amber-50/70 border border-amber-200/60 rounded-2xl p-4 text-center space-y-2 animate-in fade-in duration-200" id="firebase-status-notice">
+            <p className="text-[10px] text-amber-800 font-bold uppercase tracking-wider flex items-center justify-center gap-1.5">
+              <span>⚠️ Local Sandbox Mode</span>
+            </p>
+            <p className="text-[11px] text-neutral-600 leading-relaxed font-medium">
+              {!configured ? (
+                <>
+                  Firebase is not configured on this environment (e.g., Vercel). Data is temporarily saved <strong>locally to this browser</strong>.
+                  <span className="block mt-1 text-[10px] text-neutral-500">
+                    To log in, please click <strong>Sign Up</strong> first to create an account, or configure the Firebase environment variables in your deployment dashboard.
+                  </span>
+                </>
+              ) : (
+                <>
+                  Could not reach the database. Running in <strong>local offline fallback</strong> mode.
+                  <span className="block mt-1 text-[10px] text-neutral-500">
+                    Your changes will save to this browser's local storage. You must <strong>Sign Up</strong> if your account was not created locally yet.
+                  </span>
+                </>
+              )}
             </p>
           </div>
         )}

@@ -75,6 +75,13 @@ function markFirestoreUnhealthy() {
   }
 }
 
+export function getFirebaseStatus() {
+  return {
+    configured: isFirebaseConfigured,
+    healthy: isFirestoreHealthy && !!db
+  };
+}
+
 // Subscription helper
 export function subscribeToCollection<T extends Identifiable>(
   collectionName: string,
