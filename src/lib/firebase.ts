@@ -18,16 +18,16 @@ import appletConfig from '../../firebase-applet-config.json';
 
 const metaEnv = (import.meta as any).env || {};
 
-const configFallback = (appletConfig as any) || {};
+const rawConfig = (appletConfig as any)?.default || (appletConfig as any) || {};
 
 const firebaseConfig = {
-  apiKey: metaEnv.VITE_FIREBASE_API_KEY || configFallback.apiKey || '',
-  authDomain: metaEnv.VITE_FIREBASE_AUTH_DOMAIN || configFallback.authDomain || '',
-  projectId: metaEnv.VITE_FIREBASE_PROJECT_ID || configFallback.projectId || '',
-  storageBucket: metaEnv.VITE_FIREBASE_STORAGE_BUCKET || configFallback.storageBucket || '',
-  messagingSenderId: metaEnv.VITE_FIREBASE_MESSAGING_SENDER_ID || configFallback.messagingSenderId || '',
-  appId: metaEnv.VITE_FIREBASE_APP_ID || configFallback.appId || '',
-  firestoreDatabaseId: metaEnv.VITE_FIREBASE_FIRESTORE_DATABASE_ID || configFallback.firestoreDatabaseId || ''
+  apiKey: metaEnv.VITE_FIREBASE_API_KEY || rawConfig.apiKey || '',
+  authDomain: metaEnv.VITE_FIREBASE_AUTH_DOMAIN || rawConfig.authDomain || '',
+  projectId: metaEnv.VITE_FIREBASE_PROJECT_ID || rawConfig.projectId || '',
+  storageBucket: metaEnv.VITE_FIREBASE_STORAGE_BUCKET || rawConfig.storageBucket || '',
+  messagingSenderId: metaEnv.VITE_FIREBASE_MESSAGING_SENDER_ID || rawConfig.messagingSenderId || '',
+  appId: metaEnv.VITE_FIREBASE_APP_ID || rawConfig.appId || '',
+  firestoreDatabaseId: metaEnv.VITE_FIREBASE_FIRESTORE_DATABASE_ID || rawConfig.firestoreDatabaseId || ''
 };
 
 export const isFirebaseConfigured = !!(
