@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { User } from '../types';
 import { registerUser, loginUser, resetUserPassword, getFirebaseStatus } from '../lib/firebase';
-import { User as UserIcon, Lock, ArrowRight, Phone, Compass, Landmark, KeyRound, ArrowLeft, Check } from 'lucide-react';
+import { User as UserIcon, Lock, ArrowRight, Phone, Compass, Landmark, KeyRound, ArrowLeft, Check, Mail } from 'lucide-react';
 
 interface AuthScreenProps {
   onAuthSuccess: (user: User) => void;
@@ -14,6 +14,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
   const [isLogin, setIsLogin] = useState(true);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [resetSuccess, setResetSuccess] = useState<string | null>(null);
@@ -22,7 +23,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !password || (!isLogin && !phoneNumber.trim())) {
+    if (!name.trim() || !password || (!isLogin && !email.trim())) {
       setError("Please fill out all required fields.");
       return;
     }
@@ -36,7 +37,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
       if (isLogin) {
         user = await loginUser(name, password, role);
       } else {
-        user = await registerUser(name, password, phoneNumber, role);
+        user = await registerUser(name, email, password, role);
       }
       onAuthSuccess(user);
     } catch (err: any) {
@@ -48,8 +49,8 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !phoneNumber.trim() || !password) {
-      setError("Please fill in Username, Phone Number, and New Password.");
+    if (!name.trim() || !email.trim() || !password) {
+      setError("Please fill in Username, Email Address, and New Password.");
       return;
     }
 
@@ -58,7 +59,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     setLoading(true);
 
     try {
-      await resetUserPassword(name, phoneNumber, password, role);
+      await resetUserPassword(name, email, password, role);
       setResetSuccess("Password reset successfully! You can now log in with your new password.");
       setTimeout(() => {
         setIsForgotPassword(false);
@@ -66,7 +67,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         setResetSuccess(null);
       }, 2000);
     } catch (err: any) {
-      setError(err.message || "Could not reset password. Please verify your username and phone number.");
+      setError(err.message || "Could not reset password. Please verify your username and email.");
     } finally {
       setLoading(false);
     }
@@ -267,7 +268,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
               <div>
                 <label className="block text-[10px] font-bold text-neutral-600 uppercase tracking-wider mb-1.5">
                   {isLogin 
-                    ? role === 'temple_team' ? 'Team Name or Phone' : 'Username or Phone'
+                    ? role === 'temple_team' ? 'Team Name / Email / Phone' : 'Username / Email / Phone'
                     : role === 'temple_team' ? 'Team Name' : 'Username'
                   }
                 </label>
@@ -280,8 +281,8 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder={isLogin
-                      ? role === 'temple_team' ? "Team Name or Phone Number" : "Username or Phone Number"
-                      : role === 'temple_team' ? "e.g., Sunday Seva Squad" : "Enter your name"
+                      ? role === 'temple_team' ? "Team Name, Email, or Phone" : "Username, Email, or Phone"
+                      : role === 'temple_team' ? "e.g., Sunday Seva Squad" : "Enter your username or name"
                     }
                     className="w-full pl-10 pr-4 py-3 bg-white border border-[#EBE7DF] rounded-xl text-neutral-800 placeholder-neutral-400 focus:outline-hidden focus:ring-1 focus:ring-[#C88A8A] focus:border-[#C88A8A] text-sm transition-all"
                     required
@@ -293,24 +294,24 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
               {!isLogin && (
                 <div>
                   <label className="block text-[10px] font-bold text-neutral-600 uppercase tracking-wider mb-1.5">
-                    Phone Number
+                    Email Address
                   </label>
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-400">
-                      <Phone size={15} />
+                      <Mail size={15} />
                     </span>
                     <input
-                      type="tel"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      placeholder="e.g., 5551234567"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="you@example.com"
                       className="w-full pl-10 pr-4 py-3 bg-white border border-[#EBE7DF] rounded-xl text-neutral-800 placeholder-neutral-400 focus:outline-hidden focus:ring-1 focus:ring-[#C88A8A] focus:border-[#C88A8A] text-sm transition-all"
                       required
-                      id="auth-phone-input"
+                      id="auth-email-input"
                     />
                   </div>
                   <p className="text-[10px] text-neutral-400 mt-1 pl-1">
-                    Required so event organizers can coordinate with you.
+                    Used for automated event notifications & sign-up updates.
                   </p>
                 </div>
               )}
@@ -424,17 +425,17 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
 
               <div>
                 <label className="block text-[10px] font-bold text-neutral-600 uppercase tracking-wider mb-1.5">
-                  Registered Phone Number
+                  Email Address
                 </label>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-400">
-                    <Phone size={15} />
+                    <Mail size={15} />
                   </span>
                   <input
-                    type="tel"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    placeholder="Enter phone number"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter registered email"
                     className="w-full pl-10 pr-4 py-3 bg-white border border-[#EBE7DF] rounded-xl text-neutral-800 placeholder-neutral-400 focus:outline-hidden focus:ring-1 focus:ring-[#C88A8A] text-sm"
                     required
                   />

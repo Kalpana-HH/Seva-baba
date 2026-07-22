@@ -17,8 +17,9 @@ export interface Event {
 export interface User {
   id: string;
   name: string;
+  email?: string;
   password: string; // Simple plain-text or hashed password stored securely
-  phoneNumber: string;
+  phoneNumber?: string;
   role: 'member' | 'temple_team';
 }
 

@@ -354,14 +354,16 @@ export async function getUserByPhoneNumber(phone: string): Promise<User | null> 
 
 export async function registerUser(
   name: string,
+  email: string,
   password: string,
-  phoneNumber: string,
-  role: 'member' | 'temple_team'
+  role: 'member' | 'temple_team',
+  phoneNumber?: string
 ): Promise<User> {
   const trimmedName = name.trim();
-  const trimmedPhone = phoneNumber.trim();
-  if (!trimmedName || !password || !trimmedPhone) {
-    throw new Error("Name, password, and phone number are required");
+  const trimmedEmail = email.trim().toLowerCase();
+  const trimmedPhone = (phoneNumber || '').trim();
+  if (!trimmedName || !trimmedEmail || !password) {
+    throw new Error("Username, email, and password are required");
   }
 
   const nameLower = trimmedName.toLowerCase();
@@ -369,9 +371,12 @@ export async function registerUser(
 
   const checkDuplicatesAndBuild = (existingUsers: User[]): User => {
     if (existingUsers.some(u => u.name && u.name.trim().toLowerCase() === nameLower)) {
-      throw new Error("A user with this name already exists. Please pick a different name or log in.");
+      throw new Error("A user with this username already exists. Please pick a different username or log in.");
     }
-    if (existingUsers.some(u => {
+    if (existingUsers.some(u => u.email && u.email.trim().toLowerCase() === trimmedEmail)) {
+      throw new Error("A user with this email address already exists. Please log in instead.");
+    }
+    if (trimmedPhone && existingUsers.some(u => {
       const uDigits = u.phoneNumber ? u.phoneNumber.replace(/\D/g, '') : '';
       return u.phoneNumber === trimmedPhone || (phoneDigits.length >= 7 && uDigits === phoneDigits);
     })) {
@@ -381,8 +386,9 @@ export async function registerUser(
     return {
       id: `user-${Date.now()}`,
       name: trimmedName,
+      email: trimmedEmail,
       password: password,
-      phoneNumber: trimmedPhone,
+      phoneNumber: trimmedPhone || '',
       role: role
     };
   };
@@ -427,7 +433,7 @@ export async function registerUser(
     console.warn("Firebase registration failed, falling back to local storage:", e);
     if (
       e.message.includes("already exists") ||
-      e.message === "Name, password, and phone number are required"
+      e.message === "Name, email, password, and phone number are required"
     ) {
       throw e;
     }
@@ -436,13 +442,13 @@ export async function registerUser(
 }
 
 export async function loginUser(
-  nameOrPhone: string,
+  nameOrEmailOrPhone: string,
   password: string,
   role: 'member' | 'temple_team'
 ): Promise<User> {
-  const trimmedInput = nameOrPhone.trim();
+  const trimmedInput = nameOrEmailOrPhone.trim();
   if (!trimmedInput || !password) {
-    throw new Error("Username/phone and password are required");
+    throw new Error("Username/Email/Phone and password are required");
   }
 
   const inputLower = trimmedInput.toLowerCase();
@@ -454,9 +460,10 @@ export async function loginUser(
     // Search for matching user in current role
     const foundUser = roleUsers.find(u => {
       const matchName = u.name && u.name.trim().toLowerCase() === inputLower;
+      const matchEmail = u.email && u.email.trim().toLowerCase() === inputLower;
       const matchPhoneExact = u.phoneNumber && u.phoneNumber.trim() === trimmedInput;
       const matchPhoneDigits = u.phoneNumber && inputDigits.length >= 7 && u.phoneNumber.replace(/\D/g, '') === inputDigits;
-      return matchName || matchPhoneExact || matchPhoneDigits;
+      return matchName || matchEmail || matchPhoneExact || matchPhoneDigits;
     });
 
     if (!foundUser) {
@@ -514,31 +521,37 @@ export async function loginUser(
 }
 
 export async function resetUserPassword(
-  nameOrPhone: string,
-  phoneNumber: string,
+  nameOrEmail: string,
+  emailOrPhone: string,
   newPassword: string,
   role: 'member' | 'temple_team'
 ): Promise<void> {
-  const trimmedInput = nameOrPhone.trim().toLowerCase();
-  const trimmedPhone = phoneNumber.trim();
-  const phoneDigits = trimmedPhone.replace(/\D/g, '');
+  const input1 = nameOrEmail.trim().toLowerCase();
+  const input2 = emailOrPhone.trim().toLowerCase();
+  const input2Digits = emailOrPhone.replace(/\D/g, '');
 
-  if (!trimmedInput || !trimmedPhone || !newPassword) {
+  if (!input1 || !input2 || !newPassword) {
     throw new Error("All fields are required to reset password");
   }
 
   let userFound = false;
 
+  const matchesUser = (u: User) => {
+    if (u.role !== role) return false;
+    const matchName1 = u.name && u.name.trim().toLowerCase() === input1;
+    const matchEmail1 = u.email && u.email.trim().toLowerCase() === input1;
+    const matchName2 = u.name && u.name.trim().toLowerCase() === input2;
+    const matchEmail2 = u.email && u.email.trim().toLowerCase() === input2;
+    const matchPhoneExact = u.phoneNumber && u.phoneNumber.trim().toLowerCase() === input2;
+    const matchPhoneDigits = u.phoneNumber && input2Digits.length >= 7 && u.phoneNumber.replace(/\D/g, '') === input2Digits;
+
+    return (matchName1 || matchEmail1) && (matchEmail2 || matchName2 || matchPhoneExact || matchPhoneDigits);
+  };
+
   // 1. Local Storage update
   const savedLocal = localStorage.getItem('gather_users_local');
   const localUsers: User[] = savedLocal ? JSON.parse(savedLocal) : [];
-  const localIdx = localUsers.findIndex(u => {
-    if (u.role !== role) return false;
-    const matchName = u.name && u.name.trim().toLowerCase() === trimmedInput;
-    const matchPhoneExact = u.phoneNumber && u.phoneNumber.trim() === trimmedPhone;
-    const matchPhoneDigits = u.phoneNumber && phoneDigits.length >= 7 && u.phoneNumber.replace(/\D/g, '') === phoneDigits;
-    return (matchName || matchPhoneExact || matchPhoneDigits) && (matchPhoneExact || matchPhoneDigits);
-  });
+  const localIdx = localUsers.findIndex(matchesUser);
 
   if (localIdx > -1) {
     localUsers[localIdx].password = newPassword;
@@ -554,15 +567,10 @@ export async function resetUserPassword(
 
       snap.forEach(async (docSnap) => {
         const u = docSnap.data() as User;
-        if (u.role === role) {
-          const matchName = u.name && u.name.trim().toLowerCase() === trimmedInput;
-          const matchPhoneExact = u.phoneNumber && u.phoneNumber.trim() === trimmedPhone;
-          const matchPhoneDigits = u.phoneNumber && phoneDigits.length >= 7 && u.phoneNumber.replace(/\D/g, '') === phoneDigits;
-          if ((matchName || matchPhoneExact || matchPhoneDigits) && (matchPhoneExact || matchPhoneDigits)) {
-            userFound = true;
-            const docRef = doc(db, 'users', docSnap.id);
-            await setDoc(docRef, { ...u, password: newPassword });
-          }
+        if (matchesUser(u)) {
+          userFound = true;
+          const docRef = doc(db, 'users', docSnap.id);
+          await setDoc(docRef, { ...u, password: newPassword });
         }
       });
     } catch (e) {
@@ -571,7 +579,7 @@ export async function resetUserPassword(
   }
 
   if (!userFound) {
-    throw new Error("User not found with matching username/phone");
+    throw new Error("No account matching those details was found.");
   }
 }
 

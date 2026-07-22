@@ -7,7 +7,8 @@ import ShoppingList from './components/ShoppingList';
 import TimelineTracker from './components/TimelineTracker';
 import AuthScreen from './components/AuthScreen';
 import SettingsModal from './components/SettingsModal';
-import { Plus, ChevronLeft, Calendar, Users, Utensils, ShoppingBag, ClipboardList, Heart, Edit3, Grid, Settings } from 'lucide-react';
+import { sendAutomatedEmail, buildEventEmailHtml } from './lib/email';
+import { Plus, ChevronLeft, Calendar, Users, Utensils, ShoppingBag, ClipboardList, Heart, Edit3, Grid, Settings, CheckCircle2, ExternalLink } from 'lucide-react';
 
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -46,6 +47,14 @@ export default function App() {
   const [prefilledDate, setPrefilledDate] = useState<string | undefined>(undefined);
   const [dbError, setDbError] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [emailToast, setEmailToast] = useState<{ message: string; previewUrl?: string } | null>(null);
+
+  const showEmailNotice = (msg: string, previewUrl?: string) => {
+    setEmailToast({ message: msg, previewUrl });
+    setTimeout(() => {
+      setEmailToast(null);
+    }, 6000);
+  };
 
   const handleSaveSettings = async (updatedUser: User) => {
     await saveDocument<User>('users', 'gather_users_local', updatedUser);
@@ -80,6 +89,7 @@ export default function App() {
 
   // Event Operations
   const handleCreateOrUpdateEvent = async (formData: Omit<Event, 'id' | 'createdAt'>) => {
+    let savedEventTitle = formData.title;
     if (editingEvent) {
       const updated: Event = {
         ...editingEvent,
@@ -109,6 +119,25 @@ export default function App() {
       setFormOpen(false); // Close the popup when a new event is added successfully
     }
     setPrefilledDate(undefined);
+
+    // Dispatch fully automated background email notification for free
+    const recipientEmail = currentUser?.email || (currentUser?.phoneNumber?.includes('@') ? currentUser.phoneNumber : `${currentUser?.name.toLowerCase().replace(/\s+/g, '')}@example.com`);
+    sendAutomatedEmail({
+      to: recipientEmail,
+      subject: `[GatherCraft Automated Email] Gathering Event Notice: ${savedEventTitle}`,
+      html: buildEventEmailHtml({
+        eventTitle: savedEventTitle,
+        eventDate: formData.date,
+        eventTime: formData.time,
+        type: formData.type,
+        description: formData.description,
+        updateMessage: 'Automated notification: Event details have been created/updated.'
+      })
+    }).then((res) => {
+      if (res.success) {
+        showEmailNotice(`✉️ Automated email sent for "${savedEventTitle}"!`, res.previewUrl);
+      }
+    });
   };
 
   const handleDeleteEvent = async (id: string) => {
@@ -139,6 +168,29 @@ export default function App() {
       eventId: selectedEventId
     };
     await saveDocument<FoodItem>('foods', 'gather_foods', newFood);
+
+    const activeEv = events.find(e => e.id === selectedEventId);
+    if (activeEv) {
+      const recipientEmail = currentUser?.email || (currentUser?.phoneNumber?.includes('@') ? currentUser.phoneNumber : `${currentUser?.name.toLowerCase().replace(/\s+/g, '')}@example.com`);
+      sendAutomatedEmail({
+        to: recipientEmail,
+        subject: `[GatherCraft Automated Email] Food Dish Added: ${newFood.name}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e5e7eb; border-radius: 12px; max-width: 500px;">
+            <h3 style="color: #9d5d5d; margin-top: 0;">New Food Item Added</h3>
+            <p><strong>Event:</strong> ${activeEv.title}</p>
+            <p><strong>Dish Name:</strong> ${newFood.name} (${newFood.quantity} ${newFood.unit})</p>
+            <p><strong>Category:</strong> ${newFood.category}</p>
+            <p><strong>Assigned To:</strong> ${newFood.assignedTo}</p>
+            ${newFood.notes ? `<p style="font-style: italic; color: #666;">"${newFood.notes}"</p>` : ''}
+          </div>
+        `
+      }).then((res) => {
+        if (res.success) {
+          showEmailNotice(`✉️ Automated email notice dispatched for "${newFood.name}"!`, res.previewUrl);
+        }
+      });
+    }
   };
 
   const handleAddMultiFood = async (items: Omit<FoodItem, 'id' | 'eventId'>[]) => {
@@ -160,6 +212,27 @@ export default function App() {
     if (item) {
       const updated = { ...item, ...updatedFields };
       await saveDocument<FoodItem>('foods', 'gather_foods', updated);
+
+      const activeEv = events.find(e => e.id === item.eventId);
+      if (activeEv && updatedFields.assignedTo && updatedFields.assignedTo !== item.assignedTo) {
+        const recipientEmail = currentUser?.email || (currentUser?.phoneNumber?.includes('@') ? currentUser.phoneNumber : `${currentUser?.name.toLowerCase().replace(/\s+/g, '')}@example.com`);
+        sendAutomatedEmail({
+          to: recipientEmail,
+          subject: `[GatherCraft Automated Email] Dish Signed Up: ${item.name}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e5e7eb; border-radius: 12px; max-width: 500px;">
+              <h3 style="color: #9d5d5d; margin-top: 0;">Dish Signup Update</h3>
+              <p><strong>Event:</strong> ${activeEv.title}</p>
+              <p><strong>Dish:</strong> ${item.name}</p>
+              <p><strong>Assigned To:</strong> ${updatedFields.assignedTo}</p>
+            </div>
+          `
+        }).then((res) => {
+          if (res.success) {
+            showEmailNotice(`✉️ Automated signup email sent for "${item.name}"!`, res.previewUrl);
+          }
+        });
+      }
     }
   };
 
@@ -635,6 +708,41 @@ export default function App() {
             onClose={() => setSettingsOpen(false)}
             onSave={handleSaveSettings}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Floating Automated Email Notification Toast */}
+      <AnimatePresence>
+        {emailToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            className="fixed bottom-5 right-5 z-50 bg-neutral-900 text-white p-4 rounded-2xl shadow-2xl border border-neutral-800 max-w-md flex items-start gap-3 text-xs"
+            id="email-notification-toast"
+          >
+            <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-xl shrink-0">
+              <CheckCircle2 size={16} />
+            </div>
+            <div className="space-y-1 flex-1">
+              <div className="font-semibold text-white flex items-center justify-between">
+                <span>Automated Email Dispatched</span>
+                <span className="text-[10px] text-emerald-400 font-normal bg-emerald-950 px-2 py-0.5 rounded-full border border-emerald-800">Free</span>
+              </div>
+              <p className="text-neutral-300 text-[11px] leading-relaxed">{emailToast.message}</p>
+              {emailToast.previewUrl && (
+                <a
+                  href={emailToast.previewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] text-emerald-400 hover:text-emerald-300 font-medium underline mt-1"
+                >
+                  <span>View Email Preview</span>
+                  <ExternalLink size={11} />
+                </a>
+              )}
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
 

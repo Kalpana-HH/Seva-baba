@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { User } from '../types';
-import { X, Save, Lock, Phone, User as UserIcon, KeyRound, Eye, EyeOff } from 'lucide-react';
+import { X, Save, Lock, Phone, User as UserIcon, KeyRound, Eye, EyeOff, Mail } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface SettingsModalProps {
@@ -12,6 +12,7 @@ interface SettingsModalProps {
 export default function SettingsModal({ currentUser, onClose, onSave }: SettingsModalProps) {
   const isTempleUser = currentUser.role === 'temple_team';
   const [name, setName] = useState(currentUser.name);
+  const [email, setEmail] = useState(currentUser.email || '');
   const [phoneNumber, setPhoneNumber] = useState(currentUser.phoneNumber);
   
   // Password change toggle
@@ -30,14 +31,15 @@ export default function SettingsModal({ currentUser, onClose, onSave }: Settings
     setSuccess(false);
 
     const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
     const trimmedPhone = phoneNumber.trim();
 
     if (!trimmedName) {
       setError(isTempleUser ? 'Team Name is required' : 'Username is required');
       return;
     }
-    if (!trimmedPhone) {
-      setError('Phone number is required');
+    if (!trimmedEmail) {
+      setError('Email address is required');
       return;
     }
 
@@ -60,6 +62,7 @@ export default function SettingsModal({ currentUser, onClose, onSave }: Settings
       const updatedUser: User = {
         ...currentUser,
         name: trimmedName,
+        email: trimmedEmail,
         password: finalPassword,
         phoneNumber: trimmedPhone,
       };
@@ -144,6 +147,21 @@ export default function SettingsModal({ currentUser, onClose, onSave }: Settings
             />
           </div>
 
+          {/* Email Address Field */}
+          <div>
+            <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+              <Mail size={12} /> Email Address
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-2.5 bg-white border border-neutral-200 rounded-xl text-neutral-800 text-xs focus:outline-hidden focus:ring-1 focus:ring-neutral-400 transition-all"
+              placeholder="e.g., name@example.com"
+              required
+            />
+          </div>
+
           {/* Phone Number Field */}
           <div>
             <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5 flex items-center gap-1">
@@ -157,6 +175,21 @@ export default function SettingsModal({ currentUser, onClose, onSave }: Settings
               placeholder="e.g., 2222222222"
               required
             />
+          </div>
+
+          {/* Automated Free Email Notifications Status */}
+          <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-3.5 space-y-1.5 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-emerald-900 flex items-center gap-1.5">
+                <span>✉️</span> Automated Email Dispatcher
+              </span>
+              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                100% Free
+              </span>
+            </div>
+            <p className="text-[11px] text-emerald-800 leading-relaxed">
+              Automated emails are sent automatically in the background when event details or food item sign-ups are updated.
+            </p>
           </div>
 
           {/* Change Password Option */}

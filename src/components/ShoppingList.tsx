@@ -58,9 +58,7 @@ export default function ShoppingList({ event, foodItems }: ShoppingListProps) {
   const checkedCount = Object.keys(checkedItems).filter(id => checkedItems[id] && foodItems.some(i => i.id === id)).length;
   const percentComplete = totalItems > 0 ? Math.round((checkedCount / totalItems) * 100) : 0;
 
-  const copyToClipboard = () => {
-    if (foodItems.length === 0) return;
-    
+  const generateFormattedText = () => {
     let text = `🛒 SHOPPING LIST FOR: ${event.title.toUpperCase()}\n`;
     text += `📅 Date: ${event.date} | Guest Count: ${event.guestsCount}\n`;
     text += `=========================================\n\n`;
@@ -75,7 +73,12 @@ export default function ShoppingList({ event, foodItems }: ShoppingListProps) {
       });
       text += `\n`;
     });
+    return text;
+  };
 
+  const copyToClipboard = () => {
+    if (foodItems.length === 0) return;
+    const text = generateFormattedText();
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -117,17 +120,17 @@ export default function ShoppingList({ event, foodItems }: ShoppingListProps) {
             className="px-5 py-3 bg-neutral-800 hover:bg-neutral-900 text-white font-medium rounded-xl text-xs transition shadow-sm flex items-center justify-center gap-2 cursor-pointer shrink-0"
             id="copy-shopping-list-btn"
           >
-            {copied ? (
-              <>
-                <ClipboardCheck size={14} className="text-emerald-400" />
-                Copied to Clipboard!
-              </>
-            ) : (
-              <>
-                <Copy size={14} />
-                Copy Grocery List
-              </>
-            )}
+              {copied ? (
+                <>
+                  <ClipboardCheck size={14} className="text-emerald-400" />
+                  Copied to Clipboard!
+                </>
+              ) : (
+                <>
+                  <Copy size={14} />
+                  Copy Grocery List
+                </>
+              )}
           </button>
         )}
       </div>
