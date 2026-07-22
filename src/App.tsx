@@ -163,43 +163,64 @@ export default function App() {
     const baseUrl = window.location.origin + window.location.pathname;
     const eventLink = `${baseUrl}?eventId=${targetEventId}`;
 
-    // Dispatch fully automated background email notification to creator & invited guests
-    const recipients = new Set<string>();
-    if (currentUser?.email && currentUser.email.includes('@')) {
-      recipients.add(currentUser.email.trim());
-    }
+    // Collect host email and guest emails
+    const hostEmail = currentUser?.email && currentUser.email.includes('@') ? currentUser.email.trim() : null;
+    const hostName = currentUser?.name || 'Event Host';
 
+    const guestEmails = new Set<string>();
     if (formData.invitedPhones && Array.isArray(formData.invitedPhones)) {
       formData.invitedPhones.forEach((invitee) => {
         if (invitee && invitee.includes('@')) {
-          recipients.add(invitee.trim());
+          const trimmed = invitee.trim();
+          // Exclude host from guest invitations list
+          if (hostEmail && trimmed.toLowerCase() === hostEmail.toLowerCase()) {
+            return;
+          }
+          guestEmails.add(trimmed);
         }
       });
     }
 
-    // Fallback if no valid emails found
-    if (recipients.size === 0 && currentUser?.name) {
-      recipients.add(`${currentUser.name.toLowerCase().replace(/\s+/g, '')}@example.com`);
-    }
-
-    recipients.forEach((targetEmail) => {
+    // 1. Send Host Confirmation Email to Creator
+    if (hostEmail) {
       sendAutomatedEmail({
-        to: targetEmail,
-        subject: `[GatherCraft Email] Gathering Event Notice: ${savedEventTitle}`,
+        to: hostEmail,
+        subject: `Event Confirmation: ${savedEventTitle}`,
         html: buildEventEmailHtml({
           eventTitle: savedEventTitle,
           eventDate: formData.date,
           eventTime: formData.time,
           type: formData.type,
           description: formData.description,
-          updateMessage: `You are invited! Access the event details, food planner, and tasks directly using the link below:`,
+          updateMessage: `Your event "${savedEventTitle}" has been saved successfully! As the creator, you can manage event details and share the link below with your attendees:`,
           eventLink: eventLink
         })
       }).then((res) => {
-        if (res.success && targetEmail === currentUser?.email) {
-          showEmailNotice(`✉️ Automated email sent to ${targetEmail} for "${savedEventTitle}"!`, res.previewUrl);
+        if (res.success) {
+          showEmailNotice(`✉️ Event confirmation sent to host (${hostEmail})!`, res.previewUrl);
         }
-      }).catch(err => console.warn('Event notification email failed:', err));
+      }).catch(err => console.warn('Host email failed:', err));
+    }
+
+    // 2. Send Invitation Email to Invited Friends / Guests ONLY
+    guestEmails.forEach((guestEmail) => {
+      sendAutomatedEmail({
+        to: guestEmail,
+        subject: `You're Invited to ${savedEventTitle} by ${hostName}`,
+        html: buildEventEmailHtml({
+          eventTitle: savedEventTitle,
+          eventDate: formData.date,
+          eventTime: formData.time,
+          type: formData.type,
+          description: formData.description,
+          updateMessage: `${hostName} has invited you to join "${savedEventTitle}"! Access event details, food planner, and tasks directly using the link below:`,
+          eventLink: eventLink
+        })
+      }).then((res) => {
+        if (res.success) {
+          showEmailNotice(`✉️ Invitation sent to ${guestEmail}!`, res.previewUrl);
+        }
+      }).catch(err => console.warn('Guest invitation email failed:', err));
     });
   };
 
