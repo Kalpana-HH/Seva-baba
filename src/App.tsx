@@ -87,9 +87,33 @@ export default function App() {
     };
   }, [currentUser]);
 
+  // Auto-select event if URL contains eventId parameter
+  useEffect(() => {
+    if (!currentUser) return;
+    const params = new URLSearchParams(window.location.search);
+    const urlEventId = params.get('eventId') || params.get('event');
+    if (urlEventId && (!selectedEventId || selectedEventId !== urlEventId)) {
+      setSelectedEventId(urlEventId);
+    }
+  }, [currentUser, events]);
+
+  // Helper to update selected event and URL query params
+  const handleSelectEvent = (id: string | null) => {
+    setSelectedEventId(id);
+    const url = new URL(window.location.href);
+    if (id) {
+      url.searchParams.set('eventId', id);
+    } else {
+      url.searchParams.delete('eventId');
+    }
+    window.history.replaceState({}, '', url.toString());
+  };
+
   // Event Operations
   const handleCreateOrUpdateEvent = async (formData: Omit<Event, 'id' | 'createdAt'>) => {
     let savedEventTitle = formData.title;
+    let targetEventId = editingEvent?.id;
+
     if (editingEvent) {
       const updated: Event = {
         ...editingEvent,
@@ -104,6 +128,7 @@ export default function App() {
         id: `event-${Date.now()}`,
         createdAt: new Date().toISOString()
       };
+      targetEventId = newEvent.id;
       await saveDocument<Event>('events', 'gather_events', newEvent);
 
       // Seed core template tasks for the brand new event
@@ -119,6 +144,10 @@ export default function App() {
       setFormOpen(false); // Close the popup when a new event is added successfully
     }
     setPrefilledDate(undefined);
+
+    // Build direct link to event screen
+    const baseUrl = window.location.origin + window.location.pathname;
+    const eventLink = `${baseUrl}?eventId=${targetEventId}`;
 
     // Dispatch fully automated background email notification to creator & invited guests
     const recipients = new Set<string>();
@@ -149,7 +178,8 @@ export default function App() {
           eventTime: formData.time,
           type: formData.type,
           description: formData.description,
-          updateMessage: `Automated invitation & event details for ${savedEventTitle}.`
+          updateMessage: `You are invited! Access the event details, food planner, and tasks directly using the link below:`,
+          eventLink: eventLink
         })
       }).then((res) => {
         if (res.success && targetEmail === currentUser?.email) {
@@ -169,7 +199,7 @@ export default function App() {
     await deleteDocumentsByField('foods', 'gather_foods', 'eventId', id);
     await deleteDocumentsByField('tasks', 'gather_tasks', 'eventId', id);
     if (selectedEventId === id) {
-      setSelectedEventId(null);
+      handleSelectEvent(null);
     }
   };
 
@@ -320,7 +350,7 @@ export default function App() {
       {/* 1. Header Banner */}
       <header className="bg-white border-b border-[#EBE7DF] sticky top-0 z-30" id="main-app-header">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setSelectedEventId(null)}>
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => handleSelectEvent(null)}>
             {isTempleUser ? (
               <div className="w-8 h-8 bg-amber-600 rounded-xl flex items-center justify-center text-white font-medium text-lg shadow-sm">
                 🕌
@@ -497,7 +527,7 @@ export default function App() {
                           event={ev}
                           foodItems={foodItems.filter(f => f.eventId === ev.id)}
                           onOpen={() => {
-                            setSelectedEventId(ev.id);
+                            handleSelectEvent(ev.id);
                             setActiveTab('food'); // Default to planned food list
                           }}
                           onEdit={() => handleEditEventClick(ev)}
@@ -527,7 +557,7 @@ export default function App() {
               }`}>
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => setSelectedEventId(null)}
+                    onClick={() => handleSelectEvent(null)}
                     className={`p-2 border rounded-xl transition cursor-pointer ${
                       isTempleUser 
                         ? 'border-amber-150 text-amber-700 hover:bg-amber-50' 
