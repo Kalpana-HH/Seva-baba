@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { User } from '../types';
-import { registerUser, loginUser, resetUserPassword, getFirebaseStatus } from '../lib/firebase';
-import { sendAutomatedEmail, buildWelcomeEmailHtml, buildLoginAlertEmailHtml, buildPasswordResetEmailHtml } from '../lib/email';
-import { User as UserIcon, Lock, ArrowRight, Phone, Compass, Landmark, KeyRound, ArrowLeft, Check, Mail } from 'lucide-react';
+import { registerUser, loginUser, getUserByEmailOrUsername, getFirebaseStatus } from '../lib/firebase';
+import { sendAutomatedEmail, buildWelcomeEmailHtml, buildLoginAlertEmailHtml, buildPasswordResetLinkEmailHtml } from '../lib/email';
+import { User as UserIcon, Lock, ArrowRight, Compass, Landmark, KeyRound, ArrowLeft, Check, Mail, Send } from 'lucide-react';
 
 interface AuthScreenProps {
   onAuthSuccess: (user: User) => void;
@@ -17,7 +17,6 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
   const [resetSuccess, setResetSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -64,10 +63,11 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     }
   };
 
-  const handleResetPassword = async (e: React.FormEvent) => {
+  const handleSendResetLink = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !email.trim() || !password) {
-      setError("Please fill in Username, Email Address, and New Password.");
+    const queryInput = email.trim() || name.trim();
+    if (!queryInput) {
+      setError("Please enter your registered email address or username.");
       return;
     }
 
@@ -76,24 +76,26 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     setLoading(true);
 
     try {
-      await resetUserPassword(name, email, password, role);
-      setResetSuccess("Password reset successfully! You can now log in with your new password.");
+      // Find matching user or fallback to entered email
+      const existingUser = await getUserByEmailOrUsername(queryInput);
+      const targetEmail = existingUser?.email || (queryInput.includes('@') ? queryInput : '');
+      const targetName = existingUser?.name || name || 'Member';
 
-      if (email.trim().includes('@')) {
-        sendAutomatedEmail({
-          to: email.trim(),
-          subject: `Password Reset Confirmation - GatherCraft Planner`,
-          html: buildPasswordResetEmailHtml(name, email)
-        }).catch(err => console.warn('Reset email failed:', err));
+      if (!targetEmail) {
+        throw new Error("No account found with that email or username. Please check and try again.");
       }
 
-      setTimeout(() => {
-        setIsForgotPassword(false);
-        setIsLogin(true);
-        setResetSuccess(null);
-      }, 2000);
+      const resetLink = `${window.location.origin}${window.location.pathname}?action=reset-password&email=${encodeURIComponent(targetEmail)}&name=${encodeURIComponent(targetName)}&role=${encodeURIComponent(role)}`;
+
+      await sendAutomatedEmail({
+        to: targetEmail,
+        subject: `Reset Your GatherCraft Planner Password`,
+        html: buildPasswordResetLinkEmailHtml(targetName, targetEmail, resetLink)
+      });
+
+      setResetSuccess(`A password reset link has been sent to ${targetEmail}! Check your email inbox and click the button to update your password.`);
     } catch (err: any) {
-      setError(err.message || "Could not reset password. Please verify your username and email.");
+      setError(err.message || "Could not dispatch password reset link. Please verify your details.");
     } finally {
       setLoading(false);
     }
@@ -429,29 +431,10 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
               </div>
             )}
 
-            <form onSubmit={handleResetPassword} className="space-y-4">
+            <form onSubmit={handleSendResetLink} className="space-y-4">
               <div>
                 <label className="block text-[10px] font-bold text-neutral-600 uppercase tracking-wider mb-1.5">
-                  {role === 'temple_team' ? 'Team Name or Username' : 'Username'}
-                </label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-400">
-                    <UserIcon size={15} />
-                  </span>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Enter account name"
-                    className="w-full pl-10 pr-4 py-3 bg-white border border-[#EBE7DF] rounded-xl text-neutral-800 placeholder-neutral-400 focus:outline-hidden focus:ring-1 focus:ring-[#C88A8A] text-sm"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-neutral-600 uppercase tracking-wider mb-1.5">
-                  Email Address
+                  Account Email Address
                 </label>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-400">
@@ -461,30 +444,14 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter registered email"
+                    placeholder="Enter your registered email"
                     className="w-full pl-10 pr-4 py-3 bg-white border border-[#EBE7DF] rounded-xl text-neutral-800 placeholder-neutral-400 focus:outline-hidden focus:ring-1 focus:ring-[#C88A8A] text-sm"
                     required
                   />
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-neutral-600 uppercase tracking-wider mb-1.5">
-                  New Password
-                </label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-400">
-                    <Lock size={15} />
-                  </span>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter new password"
-                    className="w-full pl-10 pr-4 py-3 bg-white border border-[#EBE7DF] rounded-xl text-neutral-800 placeholder-neutral-400 focus:outline-hidden focus:ring-1 focus:ring-[#C88A8A] text-sm"
-                    required
-                  />
-                </div>
+                <p className="text-[10px] text-neutral-400 mt-1 pl-1">
+                  We'll email you a secure link to reset your password.
+                </p>
               </div>
 
               <button
@@ -496,7 +463,8 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                     : 'bg-[#C88A8A] hover:bg-[#B57878] disabled:bg-neutral-300 text-white'
                 }`}
               >
-                {loading ? 'Updating...' : 'Set New Password'}
+                <Send size={14} />
+                <span>{loading ? 'Sending Reset Link...' : 'Send Password Reset Link'}</span>
               </button>
             </form>
           </div>

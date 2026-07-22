@@ -107,6 +107,30 @@ export function buildBaseEmailWrapper(content: string, preheader: string = ''): 
   `;
 }
 
+export function format12HourTime(timeStr?: string): string {
+  if (!timeStr) return '';
+  const trimmed = timeStr.trim();
+  if (!trimmed) return '';
+
+  // If already contains AM or PM (case-insensitive), return as is
+  if (/am|pm/i.test(trimmed)) return trimmed;
+
+  const match = trimmed.match(/^(\d{1,2}):(\d{2})$/);
+  if (match) {
+    let hours = parseInt(match[1], 10);
+    const minutes = match[2];
+    if (isNaN(hours)) return trimmed;
+
+    const period = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    if (hours === 0) hours = 12;
+
+    return `${hours}:${minutes} ${period}`;
+  }
+
+  return trimmed;
+}
+
 /**
   Automated email template builder for Gathering / Temple Events
  */
@@ -119,6 +143,7 @@ export function buildEventEmailHtml(params: {
   updateMessage?: string;
   eventLink?: string;
 }): string {
+  const formattedTime = format12HourTime(params.eventTime);
   const innerContent = `
     <h2 style="margin: 0 0 12px 0; font-size: 20px; font-weight: 700; color: #111827; letter-spacing: -0.2px;">
       ${params.eventTitle}
@@ -139,7 +164,7 @@ export function buildEventEmailHtml(params: {
             </tr>
             <tr>
               <td style="padding-bottom: 8px; font-size: 13px; color: #6b7280;"><strong>Time:</strong></td>
-              <td style="padding-bottom: 8px; font-size: 14px; color: #1f2937; font-weight: 600;">${params.eventTime}</td>
+              <td style="padding-bottom: 8px; font-size: 14px; color: #1f2937; font-weight: 600;">${formattedTime}</td>
             </tr>
             ${params.type ? `
             <tr>
@@ -232,7 +257,8 @@ export function buildWelcomeEmailHtml(userName: string, userEmail: string, role:
 export function buildLoginAlertEmailHtml(userName: string): string {
   const currentFormattedTime = new Date().toLocaleString('en-US', {
     dateStyle: 'medium',
-    timeStyle: 'short'
+    timeStyle: 'short',
+    hour12: true
   });
 
   const innerContent = `
@@ -250,14 +276,57 @@ export function buildLoginAlertEmailHtml(userName: string): string {
 
     <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-left: 4px solid #16a34a; border-radius: 8px; margin-bottom: 20px;">
       <tr>
-        <td style="padding: 14px 18px; font-size: 13px; color: #166534; line-height: 1.5;">
-          <strong>Status:</strong> Authentication verified. If this was you, no action is required.
+        <td style="padding: 14px 18px; font-size: 13px; color: #166534; line-height: 1.6;">
+          <strong>Status:</strong> Authentication verified. If this was you, no action is required. If this was not you, please reply immediately to this email or update your password in account settings.
         </td>
       </tr>
     </table>
   `;
 
   return buildBaseEmailWrapper(innerContent, `Security Alert: Sign-in detected for ${userName}`);
+}
+
+export function buildPasswordResetLinkEmailHtml(userName: string, userEmail: string, resetLink: string): string {
+  const innerContent = `
+    <h2 style="margin: 0 0 12px 0; font-size: 20px; font-weight: 700; color: #111827;">
+      Password Reset Request
+    </h2>
+
+    <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.6; color: #4b5563;">
+      Hello <strong>${userName}</strong>,
+    </p>
+
+    <p style="margin: 0 0 20px 0; font-size: 14px; line-height: 1.6; color: #4b5563;">
+      We received a request to reset the password for your GatherCraft Planner account associated with <strong>${userEmail}</strong>. Click the button below to set a new password:
+    </p>
+
+    <!-- Reset Link Button -->
+    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 24px 0 24px 0;">
+      <tr>
+        <td align="center">
+          <a href="${resetLink}" target="_blank" style="display: inline-block; padding: 14px 32px; background-color: #9d5d5d; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; border-radius: 10px; box-shadow: 0 4px 10px rgba(157, 93, 93, 0.25); text-align: center;">
+            Reset Password Now
+          </a>
+        </td>
+      </tr>
+    </table>
+
+    <p style="margin: 0 0 16px 0; font-size: 12px; color: #6b7280; text-align: center;">
+      If the button above does not work, copy and paste this link into your web browser:
+      <br/>
+      <a href="${resetLink}" style="color: #9d5d5d; word-break: break-all; text-decoration: underline;">${resetLink}</a>
+    </p>
+
+    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #fefce8; border: 1px solid #fef08a; border-left: 4px solid #eab308; border-radius: 8px; margin-top: 20px;">
+      <tr>
+        <td style="padding: 12px 16px; font-size: 12px; color: #854d0e; line-height: 1.5;">
+          <strong>Notice:</strong> If you did not request a password reset, you can safely ignore this email. Your password will remain unchanged.
+        </td>
+      </tr>
+    </table>
+  `;
+
+  return buildBaseEmailWrapper(innerContent, `Password Reset Request for ${userName}`);
 }
 
 export function buildPasswordResetEmailHtml(userName: string, userEmail: string): string {
@@ -277,7 +346,7 @@ export function buildPasswordResetEmailHtml(userName: string, userEmail: string)
     <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #fefce8; border: 1px solid #fef08a; border-left: 4px solid #eab308; border-radius: 8px; margin-bottom: 20px;">
       <tr>
         <td style="padding: 14px 18px; font-size: 13px; color: #854d0e; line-height: 1.5;">
-          <strong>Security Notice:</strong> If you did not perform this password change, please contact your account administrator immediately.
+          <strong>Security Notice:</strong> If you did not perform this password change, please reply immediately to this email or contact your account administrator.
         </td>
       </tr>
     </table>

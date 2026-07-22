@@ -2,6 +2,7 @@ import React from 'react';
 import { Event, FoodItem } from '../types';
 import { Calendar, Users, Eye, Pencil, Trash2 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { format12HourTime } from '../lib/email';
 
 interface EventCardProps {
   key?: React.Key;
@@ -83,7 +84,7 @@ export default function EventCard({ event, foodItems, onOpen, onEdit, onDelete }
           <div className="space-y-2.5 pt-1 text-xs text-neutral-600">
             <div className="flex items-center gap-2">
               <Calendar size={14} className="text-neutral-400 shrink-0" />
-              <span>{formattedDate} at {event.time}</span>
+              <span>{formattedDate} at {format12HourTime(event.time)}</span>
             </div>
             <div className="flex items-center gap-2">
               <Users size={14} className="text-neutral-400 shrink-0" />

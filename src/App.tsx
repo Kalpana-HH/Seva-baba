@@ -7,6 +7,7 @@ import ShoppingList from './components/ShoppingList';
 import TimelineTracker from './components/TimelineTracker';
 import AuthScreen from './components/AuthScreen';
 import SettingsModal from './components/SettingsModal';
+import ResetPasswordModal from './components/ResetPasswordModal';
 import { sendAutomatedEmail, buildEventEmailHtml } from './lib/email';
 import { Plus, ChevronLeft, Calendar, Users, Utensils, ShoppingBag, ClipboardList, Heart, Edit3, Grid, Settings, CheckCircle2, ExternalLink } from 'lucide-react';
 
@@ -47,7 +48,20 @@ export default function App() {
   const [prefilledDate, setPrefilledDate] = useState<string | undefined>(undefined);
   const [dbError, setDbError] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [resetPasswordParams, setResetPasswordParams] = useState<{ email: string; name: string; role: 'member' | 'temple_team' } | null>(null);
   const [emailToast, setEmailToast] = useState<{ message: string; previewUrl?: string } | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('action') === 'reset-password') {
+      const email = params.get('email') || '';
+      const name = params.get('name') || '';
+      const role = (params.get('role') as any) || 'member';
+      if (email) {
+        setResetPasswordParams({ email, name, role });
+      }
+    }
+  }, []);
 
   const showEmailNotice = (msg: string, previewUrl?: string) => {
     setEmailToast({ message: msg, previewUrl });
@@ -308,6 +322,25 @@ export default function App() {
     }
   };
 
+  if (resetPasswordParams) {
+    return (
+      <ResetPasswordModal
+        email={resetPasswordParams.email}
+        name={resetPasswordParams.name}
+        role={resetPasswordParams.role}
+        onComplete={() => {
+          setResetPasswordParams(null);
+          const url = new URL(window.location.href);
+          url.searchParams.delete('action');
+          url.searchParams.delete('email');
+          url.searchParams.delete('name');
+          url.searchParams.delete('role');
+          window.history.replaceState({}, '', url.toString());
+        }}
+      />
+    );
+  }
+
   if (!currentUser) {
     return <AuthScreen onAuthSuccess={handleAuthSuccess} />;
   }
@@ -326,11 +359,15 @@ export default function App() {
     }
 
     // Strict privacy boundary: An event is ONLY visible to the current user/team if:
-    // 1. The user/team created it (creatorId or creatorPhone matches)
-    // 2. OR, the user/team is invited (invitedPhones includes user's phone number)
+    // 1. The user/team created it (creatorId or creatorPhone/email matches)
+    // 2. OR, the user/team is invited (invitedPhones includes user's identifier/email/name)
     const isOwnerOrInvited = ev.creatorId === currentUser.id || 
-                             ev.creatorPhone === currentUser.phoneNumber ||
-                             (ev.invitedPhones && ev.invitedPhones.includes(currentUser.phoneNumber));
+                             (ev.creatorPhone && (ev.creatorPhone === currentUser.phoneNumber || ev.creatorPhone === currentUser.email)) ||
+                             (ev.invitedPhones && (
+                               ev.invitedPhones.includes(currentUser.email || '') ||
+                               ev.invitedPhones.includes(currentUser.name || '') ||
+                               (currentUser.phoneNumber && ev.invitedPhones.includes(currentUser.phoneNumber))
+                             ));
 
     return isOwnerOrInvited;
   });

@@ -1,6 +1,6 @@
 {
-  "name": "Women's Event & Food Planner",
-  "description": "An elegant event coordinator and food quantity planner designed for organizing women's gatherings, dinners, baby showers, and potlucks with cloud synchronization.",
+  "name": "GatherCraft Planner",
+  "description": "GatherCraft Planner - Event & Culinary Coordination Platform with 12-hour time, email reset links, and cloud synchronization.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

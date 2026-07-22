@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { User } from '../types';
-import { X, Save, Lock, Phone, User as UserIcon, KeyRound, Eye, EyeOff, Mail } from 'lucide-react';
+import { X, Save, User as UserIcon, KeyRound, Mail, Send, Check } from 'lucide-react';
 import { motion } from 'motion/react';
+import { sendAutomatedEmail, buildPasswordResetLinkEmailHtml } from '../lib/email';
 
 interface SettingsModalProps {
   currentUser: User;
@@ -13,17 +14,42 @@ export default function SettingsModal({ currentUser, onClose, onSave }: Settings
   const isTempleUser = currentUser.role === 'temple_team';
   const [name, setName] = useState(currentUser.name);
   const [email, setEmail] = useState(currentUser.email || '');
-  const [phoneNumber, setPhoneNumber] = useState(currentUser.phoneNumber);
   
-  // Password change toggle
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPasswordText, setShowPasswordText] = useState(false);
+  // Password reset via email state
+  const [sendingReset, setSendingReset] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  const handleSendResetEmail = async () => {
+    const targetEmail = email.trim() || currentUser.email || '';
+    if (!targetEmail) {
+      setError('Please enter a valid email address to receive the password reset link.');
+      return;
+    }
+
+    setSendingReset(true);
+    setError(null);
+    setResetSent(false);
+
+    try {
+      const resetLink = `${window.location.origin}${window.location.pathname}?action=reset-password&email=${encodeURIComponent(targetEmail)}&name=${encodeURIComponent(name || currentUser.name)}&role=${encodeURIComponent(currentUser.role)}`;
+      
+      await sendAutomatedEmail({
+        to: targetEmail,
+        subject: `Reset Your GatherCraft Planner Password`,
+        html: buildPasswordResetLinkEmailHtml(name || currentUser.name, targetEmail, resetLink)
+      });
+
+      setResetSent(true);
+    } catch (err: any) {
+      setError(err.message || 'Failed to dispatch password reset email. Please try again.');
+    } finally {
+      setSendingReset(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,7 +58,6 @@ export default function SettingsModal({ currentUser, onClose, onSave }: Settings
 
     const trimmedName = name.trim();
     const trimmedEmail = email.trim();
-    const trimmedPhone = phoneNumber.trim();
 
     if (!trimmedName) {
       setError(isTempleUser ? 'Team Name is required' : 'Username is required');
@@ -43,28 +68,12 @@ export default function SettingsModal({ currentUser, onClose, onSave }: Settings
       return;
     }
 
-    let finalPassword = currentUser.password;
-
-    if (isChangingPassword) {
-      if (!newPassword) {
-        setError('New password is required');
-        return;
-      }
-      if (newPassword !== confirmPassword) {
-        setError('New passwords do not match');
-        return;
-      }
-      finalPassword = newPassword;
-    }
-
     setLoading(true);
     try {
       const updatedUser: User = {
         ...currentUser,
         name: trimmedName,
         email: trimmedEmail,
-        password: finalPassword,
-        phoneNumber: trimmedPhone,
       };
       await onSave(updatedUser);
       setSuccess(true);
@@ -105,7 +114,7 @@ export default function SettingsModal({ currentUser, onClose, onSave }: Settings
                 Account Settings
               </h2>
               <p className="text-[10px] text-neutral-500">
-                Update account details & security options
+                Update profile details & password security
               </p>
             </div>
           </div>
@@ -128,7 +137,7 @@ export default function SettingsModal({ currentUser, onClose, onSave }: Settings
 
           {success && (
             <div className="bg-emerald-50 border border-emerald-100 text-emerald-700 p-3 rounded-xl text-xs font-semibold text-center">
-              ✓ Changes saved successfully!
+              ✓ Profile changes saved successfully!
             </div>
           )}
 
@@ -162,103 +171,37 @@ export default function SettingsModal({ currentUser, onClose, onSave }: Settings
             />
           </div>
 
-          {/* Phone Number Field */}
-          <div>
-            <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-              <Phone size={12} /> Phone Number
+          {/* Password Reset Section */}
+          <div className="pt-3 border-t border-neutral-200/60 space-y-2">
+            <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider flex items-center gap-1">
+              <KeyRound size={12} /> Security & Password
             </label>
-            <input
-              type="tel"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              className="w-full px-4 py-2.5 bg-white border border-neutral-200 rounded-xl text-neutral-800 text-xs focus:outline-hidden focus:ring-1 focus:ring-neutral-400 transition-all"
-              placeholder="e.g., 2222222222"
-              required
-            />
-          </div>
-
-          {/* Automated Free Email Notifications Status */}
-          <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-3.5 space-y-1.5 text-xs">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-emerald-900 flex items-center gap-1.5">
-                <span>✉️</span> Automated Email Dispatcher
-              </span>
-              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                100% Free
-              </span>
-            </div>
-            <p className="text-[11px] text-emerald-800 leading-relaxed">
-              Automated emails are sent automatically in the background when event details or food item sign-ups are updated.
-            </p>
-          </div>
-
-          {/* Change Password Option */}
-          <div className="pt-2 border-t border-neutral-200/60">
-            {!isChangingPassword ? (
-              <button
-                type="button"
-                onClick={() => setIsChangingPassword(true)}
-                className="w-full py-2 px-3 bg-white border border-neutral-200 rounded-xl text-neutral-700 hover:bg-neutral-50 text-xs font-semibold flex items-center justify-between transition cursor-pointer"
-              >
-                <span className="flex items-center gap-1.5">
-                  <KeyRound size={14} className="text-neutral-500" />
-                  Change Password
-                </span>
-                <span className="text-[10px] text-neutral-400 font-normal">Click to update</span>
-              </button>
+            
+            {resetSent ? (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs space-y-1">
+                <div className="flex items-center gap-1.5 font-semibold">
+                  <Check size={14} className="text-emerald-600 shrink-0" />
+                  <span>Password Reset Link Dispatched!</span>
+                </div>
+                <p className="text-[11px] text-emerald-700 leading-relaxed">
+                  A reset link has been emailed to <strong>{email}</strong>. Open the email and click the button to set your new password.
+                </p>
+              </div>
             ) : (
-              <div className="bg-white border border-neutral-200 rounded-2xl p-4 space-y-3">
-                <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
-                  <span className="text-xs font-bold text-neutral-800 flex items-center gap-1.5">
-                    <KeyRound size={13} className="text-[#C88A8A]" /> Update Password
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsChangingPassword(false);
-                      setNewPassword('');
-                      setConfirmPassword('');
-                    }}
-                    className="text-[10px] text-neutral-400 hover:text-neutral-600 font-medium cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">
-                    New Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showPasswordText ? "text" : "password"}
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      className="w-full px-3 py-2 bg-[#FAF9F6] border border-neutral-200 rounded-xl text-neutral-800 text-xs focus:outline-hidden"
-                      placeholder="Enter new password"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPasswordText(!showPasswordText)}
-                      className="absolute right-3 top-2.5 text-neutral-400 hover:text-neutral-600 cursor-pointer"
-                    >
-                      {showPasswordText ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">
-                    Confirm New Password
-                  </label>
-                  <input
-                    type={showPasswordText ? "text" : "password"}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#FAF9F6] border border-neutral-200 rounded-xl text-neutral-800 text-xs focus:outline-hidden"
-                    placeholder="Re-enter new password"
-                  />
-                </div>
+              <div className="bg-white border border-neutral-200 rounded-xl p-3.5 space-y-2">
+                <p className="text-xs text-neutral-600 leading-relaxed">
+                  Need to change your password? We will send a secure password reset link directly to your email address.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleSendResetEmail}
+                  disabled={sendingReset}
+                  className="w-full py-2 px-3 bg-[#FAF3F3] hover:bg-[#F5E6E6] border border-[#F0D5D5] text-[#9D5D5D] rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                  id="settings-send-reset-link-btn"
+                >
+                  <Send size={13} />
+                  <span>{sendingReset ? 'Sending Reset Link...' : 'Email Me a Password Reset Link'}</span>
+                </button>
               </div>
             )}
           </div>
@@ -283,7 +226,7 @@ export default function SettingsModal({ currentUser, onClose, onSave }: Settings
               }`}
             >
               <Save size={13} />
-              {loading ? 'Saving...' : 'Save Changes'}
+              {loading ? 'Saving...' : 'Save Profile'}
             </button>
           </div>
         </form>
