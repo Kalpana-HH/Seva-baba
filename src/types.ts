@@ -42,3 +42,22 @@ export interface Task {
   completed: boolean;
 }
 
+export function isEventHost(event?: Event | null, user?: User | null): boolean {
+  if (!event || !user) return false;
+
+  if (event.creatorId || event.creatorPhone) {
+    const matchesId = event.creatorId === user.id || (!!user.email && event.creatorId === user.email);
+    const matchesPhone = Boolean(
+      event.creatorPhone && (
+        event.creatorPhone === user.phoneNumber ||
+        (!!user.email && event.creatorPhone === user.email) ||
+        event.creatorPhone === user.id
+      )
+    );
+    return matchesId || matchesPhone;
+  }
+
+  // Preseeded default events without creator info can be edited by the user
+  return true;
+}
+

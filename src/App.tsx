@@ -1,15 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Event, FoodItem, Task, User } from './types';
+import { Event, FoodItem, Task, User, isEventHost } from './types';
 import EventCard from './components/EventCard';
 import EventForm from './components/EventForm';
 import FoodList from './components/FoodList';
-import ShoppingList from './components/ShoppingList';
-import TimelineTracker from './components/TimelineTracker';
 import AuthScreen from './components/AuthScreen';
 import SettingsModal from './components/SettingsModal';
 import ResetPasswordModal from './components/ResetPasswordModal';
 import { sendAutomatedEmail, buildEventEmailHtml } from './lib/email';
-import { Plus, ChevronLeft, Calendar, Users, Utensils, ShoppingBag, ClipboardList, Heart, Edit3, Grid, Settings, CheckCircle2, ExternalLink } from 'lucide-react';
+import { Plus, ChevronLeft, Calendar, Users, Utensils, Edit3, Settings, CheckCircle2, ExternalLink, Heart } from 'lucide-react';
 
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -226,7 +224,14 @@ export default function App() {
 
   const handleDeleteEvent = async (id: string) => {
     const targetEvent = events.find(e => e.id === id);
-    if (targetEvent && targetEvent.eventType === 'temple' && currentUser?.role !== 'temple_team') {
+    if (!targetEvent) return;
+
+    if (!isEventHost(targetEvent, currentUser)) {
+      alert("Specs for an event can only be deleted by the Host.");
+      return;
+    }
+
+    if (targetEvent.eventType === 'temple' && currentUser?.role !== 'temple_team') {
       alert("You do not have permission to delete this event. If you do not wish to attend, please contact the team leader.");
       return;
     }
@@ -239,6 +244,10 @@ export default function App() {
   };
 
   const handleEditEventClick = (event: Event) => {
+    if (!isEventHost(event, currentUser)) {
+      alert("Specs for an event can only be changed by the Host.");
+      return;
+    }
     setEditingEvent(event);
     setFormOpen(true);
   };
@@ -590,6 +599,7 @@ export default function App() {
                           }}
                           onEdit={() => handleEditEventClick(ev)}
                           onDelete={() => handleDeleteEvent(ev.id)}
+                          currentUser={currentUser}
                         />
                       ))}
                     </AnimatePresence>
@@ -654,121 +664,38 @@ export default function App() {
                     {isTempleUser ? `${activeEvent?.guestsCount} volunteers needed` : `${activeEvent?.guestsCount} guests`}
                   </span>
 
-                  <button
-                    onClick={() => activeEvent && handleEditEventClick(activeEvent)}
-                    className={`px-3.5 py-1.5 border rounded-xl text-xs font-semibold transition flex items-center gap-1 cursor-pointer ${
-                      isTempleUser 
-                        ? 'border-amber-150 hover:bg-amber-50 text-amber-700' 
-                        : 'border-[#EBE7DF] hover:bg-neutral-100 text-neutral-600'
-                    }`}
-                    id="edit-active-event-btn"
-                  >
-                    <Edit3 size={13} /> {isTempleUser ? 'Edit Seva Specs' : 'Edit specs'}
-                  </button>
+                  {/* Edit event specifications card - Host Only */}
+                  {isEventHost(activeEvent, currentUser) ? (
+                    <button
+                      onClick={() => activeEvent && handleEditEventClick(activeEvent)}
+                      className={`px-3.5 py-1.5 border rounded-xl text-xs font-semibold transition flex items-center gap-1 cursor-pointer ${
+                        isTempleUser 
+                          ? 'border-amber-150 hover:bg-amber-50 text-amber-700' 
+                          : 'border-[#EBE7DF] hover:bg-neutral-100 text-neutral-600'
+                      }`}
+                      id="edit-active-event-btn"
+                    >
+                      <Edit3 size={13} /> {isTempleUser ? 'Edit Seva Specs' : 'Edit Specs'}
+                    </button>
+                  ) : (
+                    <span className="text-xs font-medium text-neutral-500 bg-neutral-50 px-3 py-1.5 rounded-xl border border-neutral-200/60 font-sans">
+                      Host: {activeEvent?.theme || 'Event Host'}
+                    </span>
+                  )}
                 </div>
               </div>
 
-              {/* Event Room Menu Tabs */}
-              <div className="flex border-b border-[#EBE7DF] overflow-x-auto gap-1 scrollbar-thin" id="gathering-tabs-nav">
-                <button
-                  onClick={() => setActiveTab('food')}
-                  className={`px-4 sm:px-6 py-3 text-xs font-medium border-b-2 transition whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
-                    activeTab === 'food'
-                      ? isTempleUser
-                        ? 'border-amber-600 text-amber-700 font-bold'
-                        : 'border-[#C88A8A] text-[#C88A8A] font-semibold'
-                      : 'border-transparent text-neutral-500 hover:text-neutral-800'
-                  }`}
-                  id="tab-btn-food"
-                >
-                  <Utensils size={14} className={isTempleUser ? 'text-amber-600' : 'text-[#C88A8A]'} />
-                  {isTempleUser ? 'Menu' : 'Planned Food'}
-                </button>
-
-                {!isTempleUser && (
-                  <>
-                    <button
-                      onClick={() => setActiveTab('shopping')}
-                      className={`px-4 sm:px-6 py-3 text-xs font-medium border-b-2 transition whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
-                        activeTab === 'shopping'
-                          ? 'border-[#C88A8A] text-[#C88A8A] font-semibold'
-                          : 'border-transparent text-neutral-500 hover:text-neutral-800'
-                      }`}
-                      id="tab-btn-shopping"
-                    >
-                      <ShoppingBag size={14} className="text-[#C88A8A]" />
-                      Shopping Checklist
-                    </button>
-
-                    <button
-                      onClick={() => setActiveTab('timeline')}
-                      className={`px-4 sm:px-6 py-3 text-xs font-medium border-b-2 transition whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
-                        activeTab === 'timeline'
-                          ? 'border-[#C88A8A] text-[#C88A8A] font-semibold'
-                          : 'border-transparent text-neutral-500 hover:text-neutral-800'
-                      }`}
-                      id="tab-btn-timeline"
-                    >
-                      <ClipboardList size={14} className="text-[#C88A8A]" />
-                      Hosting Timeline
-                    </button>
-                  </>
-                )}
-              </div>
-
-              {/* Active Tab Panel */}
+              {/* Food & Menu Planner Content */}
               <div className="pt-2">
                 {activeEvent && (
-                  <AnimatePresence mode="wait">
-                    {activeTab === 'food' && (
-                      <motion.div
-                        key="food-panel"
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                      >
-                        <FoodList
-                          event={activeEvent}
-                          foodItems={activeEventFoods}
-                          onAddFood={handleAddFood}
-                          onDeleteFood={handleDeleteFood}
-                          onUpdateFood={handleUpdateFood}
-                          currentUser={currentUser}
-                        />
-                      </motion.div>
-                    )}
-
-                    {activeTab === 'shopping' && (
-                      <motion.div
-                        key="shopping-panel"
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                      >
-                        <ShoppingList
-                          event={activeEvent}
-                          foodItems={activeEventFoods}
-                        />
-                      </motion.div>
-                    )}
-
-                    {activeTab === 'timeline' && (
-                      <motion.div
-                        key="timeline-panel"
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                      >
-                        <TimelineTracker
-                          event={activeEvent}
-                          tasks={activeEventTasks}
-                          onAddTask={handleAddTask}
-                          onDeleteTask={handleDeleteTask}
-                          onToggleTask={handleToggleTask}
-                        />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                  <FoodList
+                    event={activeEvent}
+                    foodItems={activeEventFoods}
+                    onAddFood={handleAddFood}
+                    onDeleteFood={handleDeleteFood}
+                    onUpdateFood={handleUpdateFood}
+                    currentUser={currentUser}
+                  />
                 )}
               </div>
             </motion.div>

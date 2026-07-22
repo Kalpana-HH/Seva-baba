@@ -1,5 +1,5 @@
 import React from 'react';
-import { Event, FoodItem } from '../types';
+import { Event, FoodItem, User, isEventHost } from '../types';
 import { Calendar, Users, Eye, Pencil, Trash2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { format12HourTime } from '../lib/email';
@@ -11,10 +11,12 @@ interface EventCardProps {
   onOpen: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  currentUser?: User | null;
 }
 
-export default function EventCard({ event, foodItems, onOpen, onEdit, onDelete }: EventCardProps) {
+export default function EventCard({ event, foodItems, onOpen, onEdit, onDelete, currentUser }: EventCardProps) {
   const [isConfirming, setIsConfirming] = React.useState(false);
+  const isHost = isEventHost(event, currentUser);
   const formattedDate = new Date(event.date).toLocaleDateString('en-US', {
     weekday: 'short',
     month: 'short',
@@ -138,56 +140,58 @@ export default function EventCard({ event, foodItems, onOpen, onEdit, onDelete }
             {isTemple ? 'Manage Menu' : 'Plan Menu'}
           </button>
 
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={onEdit}
-              className="p-2 hover:bg-neutral-100 text-neutral-500 hover:text-neutral-700 rounded-xl transition cursor-pointer"
-              title="Edit event details"
-              id={`edit-btn-${event.id}`}
-            >
-              <Pencil size={14} />
-            </button>
-            
-            {isConfirming ? (
-              <div className="flex items-center gap-1 bg-rose-50/80 border border-rose-200 rounded-xl p-1 animate-in fade-in zoom-in duration-150">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete();
-                    setIsConfirming(false);
-                  }}
-                  className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-lg text-[10px] transition cursor-pointer shadow-2xs"
-                  title="Yes, delete this event"
-                  id={`confirm-delete-btn-${event.id}`}
-                >
-                  Delete
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsConfirming(false);
-                  }}
-                  className="px-2 py-1 bg-white border border-neutral-200 text-neutral-600 font-medium rounded-lg text-[10px] hover:bg-neutral-50 transition cursor-pointer"
-                  title="Cancel deletion"
-                  id={`cancel-delete-btn-${event.id}`}
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
+          {isHost && (
+            <div className="flex items-center gap-1.5">
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsConfirming(true);
-                }}
-                className="p-2 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition border border-transparent hover:border-rose-100 cursor-pointer"
-                title="Delete gathering"
-                id={`delete-btn-${event.id}`}
+                onClick={onEdit}
+                className="p-2 hover:bg-neutral-100 text-neutral-500 hover:text-neutral-700 rounded-xl transition cursor-pointer"
+                title="Edit event specs"
+                id={`edit-btn-${event.id}`}
               >
-                <Trash2 size={14} />
+                <Pencil size={14} />
               </button>
-            )}
-          </div>
+              
+              {isConfirming ? (
+                <div className="flex items-center gap-1 bg-rose-50/80 border border-rose-200 rounded-xl p-1 animate-in fade-in zoom-in duration-150">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete();
+                      setIsConfirming(false);
+                    }}
+                    className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-lg text-[10px] transition cursor-pointer shadow-2xs"
+                    title="Yes, delete this event"
+                    id={`confirm-delete-btn-${event.id}`}
+                  >
+                    Delete
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsConfirming(false);
+                    }}
+                    className="px-2 py-1 bg-white border border-neutral-200 text-neutral-600 font-medium rounded-lg text-[10px] hover:bg-neutral-50 transition cursor-pointer"
+                    title="Cancel deletion"
+                    id={`cancel-delete-btn-${event.id}`}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsConfirming(true);
+                  }}
+                  className="p-2 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition border border-transparent hover:border-rose-100 cursor-pointer"
+                  title="Delete gathering"
+                  id={`delete-btn-${event.id}`}
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </motion.div>
     </>

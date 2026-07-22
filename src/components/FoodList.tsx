@@ -20,8 +20,6 @@ export default function FoodList({ event, foodItems, onAddFood, onDeleteFood, on
   // Manual Entry Form State
   const [name, setName] = useState('');
   const [category, setCategory] = useState<typeof CATEGORIES[number]>('Main');
-  const [quantity, setQuantity] = useState<number | ''>('');
-  const [unit, setUnit] = useState('servings');
   const [assignedTo, setAssignedTo] = useState(currentUser?.name || 'Host');
   const [notes, setNotes] = useState('');
 
@@ -29,30 +27,24 @@ export default function FoodList({ event, foodItems, onAddFood, onDeleteFood, on
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editCategory, setEditCategory] = useState<typeof CATEGORIES[number]>('Main');
-  const [editQuantity, setEditQuantity] = useState<number>(0);
-  const [editUnit, setEditUnit] = useState('');
   const [editAssignedTo, setEditAssignedTo] = useState('');
   const [editNotes, setEditNotes] = useState('');
 
-  // Quick select common units
-  const commonUnits = ['servings', 'pieces', 'cups', 'lbs', 'bottles', 'cans', 'pans', 'liters'];
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || quantity === '' || quantity <= 0) return;
+    if (!name.trim()) return;
 
     onAddFood({
       name: name.trim(),
       category: isTemple ? 'Main' : category,
-      quantity,
-      unit,
+      quantity: 1,
+      unit: '',
       assignedTo: assignedTo.trim() || 'Host',
       notes: notes.trim(),
     });
 
     // Reset Form
     setName('');
-    setQuantity('');
     setNotes('');
   };
 
@@ -60,19 +52,15 @@ export default function FoodList({ event, foodItems, onAddFood, onDeleteFood, on
     setEditingId(item.id);
     setEditName(item.name);
     setEditCategory(item.category);
-    setEditQuantity(item.quantity);
-    setEditUnit(item.unit);
     setEditAssignedTo(item.assignedTo);
     setEditNotes(item.notes || '');
   };
 
   const handleSaveEdit = (id: string) => {
-    if (!editName.trim() || editQuantity <= 0) return;
+    if (!editName.trim()) return;
     onUpdateFood(id, {
       name: editName.trim(),
       category: isTemple ? 'Main' : editCategory,
-      quantity: editQuantity,
-      unit: editUnit,
       assignedTo: editAssignedTo.trim() || 'Host',
       notes: editNotes.trim(),
     });
@@ -87,7 +75,7 @@ export default function FoodList({ event, foodItems, onAddFood, onDeleteFood, on
           <h2 className="font-sans font-medium text-lg text-neutral-800">
             {isTemple ? 'Planned Temple Food & Offerings' : 'Planned Food & Drinks'}
           </h2>
-          <p className="text-xs text-neutral-500 mt-0.5">Define your menu items and catering quantities for {event.guestsCount} guests.</p>
+          <p className="text-xs text-neutral-500 mt-0.5">Define your menu items and food details for {event.guestsCount} guests.</p>
         </div>
       </div>
 
@@ -128,39 +116,6 @@ export default function FoodList({ event, foodItems, onAddFood, onDeleteFood, on
               )}
 
               <div>
-                <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1">Quantity</label>
-                <input
-                  type="number"
-                  step="any"
-                  min="0.1"
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
-                  placeholder="e.g. 15"
-                  className="w-full px-3 py-2.5 bg-[#FAF9F6] border border-[#EBE7DF] rounded-xl text-xs text-neutral-800 placeholder-neutral-400 focus:outline-hidden"
-                  required
-                  id="food-quantity-input"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1">Unit</label>
-                <input
-                  type="text"
-                  value={unit}
-                  onChange={(e) => setUnit(e.target.value)}
-                  placeholder="servings, pieces..."
-                  list="units-list"
-                  className="w-full px-3 py-2.5 bg-[#FAF9F6] border border-[#EBE7DF] rounded-xl text-xs text-neutral-800 focus:outline-hidden"
-                  id="food-unit-input"
-                />
-                <datalist id="units-list">
-                  {commonUnits.map(u => <option key={u} value={u} />)}
-                </datalist>
-              </div>
-
-              <div>
                 <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1">Who is Bringing?</label>
                 <input
                   type="text"
@@ -174,12 +129,12 @@ export default function FoodList({ event, foodItems, onAddFood, onDeleteFood, on
             </div>
 
             <div>
-              <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1">Notes / Preparation Tips</label>
+              <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1">Notes / Prep Tips / Quantity</label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="e.g., Prepared in clean devotional kitchen, no onion or garlic"
-                className="w-full px-3 py-2 bg-[#FAF9F6] border border-[#EBE7DF] rounded-xl text-xs text-neutral-800 placeholder-neutral-400 focus:outline-hidden resize-none h-16"
+                placeholder="Notes / Prep Tips / Quantity (e.g., 2 trays, 15 servings, bring warm in crockpot)"
+                className="w-full px-3 py-2 bg-[#FAF9F6] border border-[#EBE7DF] rounded-xl text-xs text-neutral-800 placeholder-neutral-400 focus:outline-hidden resize-none h-20"
                 id="food-notes-textarea"
               />
             </div>
@@ -241,6 +196,7 @@ export default function FoodList({ event, foodItems, onAddFood, onDeleteFood, on
                               value={editName}
                               onChange={(e) => setEditName(e.target.value)}
                               className="px-3 py-1.5 bg-white border border-[#EBE7DF] rounded-lg text-xs"
+                              placeholder="Dish/Drink Name"
                               id={`edit-item-name-${item.id}`}
                             />
                             {!isTemple && (
@@ -255,26 +211,12 @@ export default function FoodList({ event, foodItems, onAddFood, onDeleteFood, on
                             )}
                           </div>
                           
-                          <div className="grid grid-cols-3 gap-2">
-                            <input
-                              type="number"
-                              value={editQuantity}
-                              onChange={(e) => setEditQuantity(parseFloat(e.target.value) || 0)}
-                              className="px-3 py-1.5 bg-white border border-[#EBE7DF] rounded-lg text-xs text-center"
-                              id={`edit-item-qty-${item.id}`}
-                            />
-                            <input
-                              type="text"
-                              value={editUnit}
-                              onChange={(e) => setEditUnit(e.target.value)}
-                              className="px-3 py-1.5 bg-white border border-[#EBE7DF] rounded-lg text-xs"
-                              id={`edit-item-unit-${item.id}`}
-                            />
+                          <div>
                             <input
                               type="text"
                               value={editAssignedTo}
                               onChange={(e) => setEditAssignedTo(e.target.value)}
-                              className="px-3 py-1.5 bg-white border border-[#EBE7DF] rounded-lg text-xs"
+                              className="w-full px-3 py-1.5 bg-white border border-[#EBE7DF] rounded-lg text-xs"
                               placeholder="Assigned to"
                               id={`edit-item-assignee-${item.id}`}
                             />
@@ -283,8 +225,8 @@ export default function FoodList({ event, foodItems, onAddFood, onDeleteFood, on
                           <textarea
                             value={editNotes}
                             onChange={(e) => setEditNotes(e.target.value)}
-                            className="w-full px-3 py-1.5 bg-white border border-[#EBE7DF] rounded-lg text-xs h-12 resize-none"
-                            placeholder="Add notes..."
+                            className="w-full px-3 py-1.5 bg-white border border-[#EBE7DF] rounded-lg text-xs h-14 resize-none"
+                            placeholder="Notes / Prep Tips / Quantity"
                             id={`edit-item-notes-${item.id}`}
                           />
 
@@ -318,15 +260,12 @@ export default function FoodList({ event, foodItems, onAddFood, onDeleteFood, on
                             </div>
                             
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-neutral-500 font-medium">
-                              <span className="text-neutral-700 bg-amber-50 text-amber-800 border border-amber-100 px-1.5 py-0.5 rounded-md font-mono text-[10px]">
-                                Quantity: {item.quantity} {item.unit}
-                              </span>
-                              <span>•</span>
                               <span className="text-neutral-600">Assigned: <span className="font-semibold text-neutral-800">{item.assignedTo}</span></span>
                             </div>
 
                             {item.notes && (
-                              <p className="text-[10px] text-neutral-400 italic bg-white/70 px-2.5 py-1.5 rounded-lg border border-neutral-100 mt-1.5 leading-relaxed">
+                              <p className="text-[10px] text-neutral-600 bg-white/80 px-2.5 py-1.5 rounded-lg border border-neutral-100 mt-1.5 leading-relaxed">
+                                <span className="font-semibold text-neutral-500">Notes / Prep Tips / Quantity: </span>
                                 {item.notes}
                               </p>
                             )}
