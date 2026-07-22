@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { User } from '../types';
 import { registerUser, loginUser, resetUserPassword, getFirebaseStatus } from '../lib/firebase';
+import { sendAutomatedEmail } from '../lib/email';
 import { User as UserIcon, Lock, ArrowRight, Phone, Compass, Landmark, KeyRound, ArrowLeft, Check, Mail } from 'lucide-react';
 
 interface AuthScreenProps {
@@ -36,8 +37,66 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
       let user: User;
       if (isLogin) {
         user = await loginUser(name, password, role);
+        // Send login alert email if email is present
+        if (user.email && user.email.includes('@')) {
+          sendAutomatedEmail({
+            to: user.email,
+            subject: `🔑 Login Alert - GatherCraft Planner`,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 16px; background-color: #ffffff;">
+                <div style="background-color: #fcf8f6; padding: 16px 20px; border-radius: 12px; margin-bottom: 20px; text-align: center;">
+                  <h2 style="color: #9d5d5d; margin: 0; font-size: 22px; font-weight: bold;">GatherCraft Planner</h2>
+                  <p style="color: #6b7280; margin: 4px 0 0 0; font-size: 13px;">Account Activity Notification</p>
+                </div>
+
+                <h3 style="color: #111827; font-size: 16px; margin-top: 0;">Hi ${user.name},</h3>
+                <p style="color: #374151; font-size: 14px; line-height: 1.5;">
+                  You successfully logged in to your <strong>GatherCraft Planner</strong> account.
+                </p>
+
+                <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 24px; border-top: 1px solid #f3f4f6; padding-top: 12px;">
+                  Sent automatically by GatherCraft Planner.
+                </p>
+              </div>
+            `
+          }).catch(err => console.warn('Login email failed:', err));
+        }
       } else {
         user = await registerUser(name, email, password, role);
+        // Send welcome email upon registration
+        if (user.email && user.email.includes('@')) {
+          sendAutomatedEmail({
+            to: user.email,
+            subject: `🌸 Welcome to GatherCraft Planner, ${user.name}!`,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 16px; background-color: #ffffff;">
+                <div style="background-color: #fcf8f6; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px;">
+                  <h2 style="color: #9d5d5d; margin: 0; font-size: 24px; font-weight: bold;">GatherCraft Planner</h2>
+                  <p style="color: #6b7280; margin: 4px 0 0 0; font-size: 13px;">Welcome to Your Culinary & Event Planning Hub</p>
+                </div>
+
+                <h3 style="color: #111827; font-size: 18px;">Hello ${user.name},</h3>
+                <p style="color: #374151; font-size: 14px; line-height: 1.6;">
+                  Thank you for registering with <strong>GatherCraft Planner</strong>! Your account is active and ready to use.
+                </p>
+
+                <div style="background-color: #f9fafb; padding: 16px; border-left: 4px solid #c88a8a; border-radius: 8px; margin: 20px 0;">
+                  <p style="margin: 4px 0; color: #4b5563; font-size: 14px;"><strong>Username:</strong> ${user.name}</p>
+                  <p style="margin: 4px 0; color: #4b5563; font-size: 14px;"><strong>Registered Email:</strong> ${user.email}</p>
+                  <p style="margin: 4px 0; color: #4b5563; font-size: 14px;"><strong>Role:</strong> ${user.role === 'temple_team' ? 'Temple Seva Team Volunteer' : 'Gathering Host Member'}</p>
+                </div>
+
+                <p style="color: #374151; font-size: 14px; line-height: 1.6;">
+                  Start creating event gatherings, organizing dish lists, and coordinating timelines.
+                </p>
+
+                <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 28px; border-top: 1px solid #f3f4f6; padding-top: 16px;">
+                  Sent automatically by GatherCraft Planner.
+                </p>
+              </div>
+            `
+          }).catch(err => console.warn('Welcome email failed:', err));
+        }
       }
       onAuthSuccess(user);
     } catch (err: any) {
@@ -61,6 +120,31 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     try {
       await resetUserPassword(name, email, password, role);
       setResetSuccess("Password reset successfully! You can now log in with your new password.");
+
+      if (email.trim().includes('@')) {
+        sendAutomatedEmail({
+          to: email.trim(),
+          subject: `🔒 Password Reset Confirmation - GatherCraft Planner`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 16px; background-color: #ffffff;">
+              <div style="background-color: #fcf8f6; padding: 16px 20px; border-radius: 12px; margin-bottom: 20px; text-align: center;">
+                <h2 style="color: #9d5d5d; margin: 0; font-size: 22px; font-weight: bold;">GatherCraft Planner</h2>
+                <p style="color: #6b7280; margin: 4px 0 0 0; font-size: 13px;">Security Notice</p>
+              </div>
+
+              <h3 style="color: #111827; font-size: 16px; margin-top: 0;">Password Reset Successful</h3>
+              <p style="color: #374151; font-size: 14px; line-height: 1.5;">
+                The password for account <strong>${name}</strong> (${email}) was recently updated.
+              </p>
+
+              <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 24px; border-top: 1px solid #f3f4f6; padding-top: 12px;">
+                Sent automatically by GatherCraft Planner.
+              </p>
+            </div>
+          `
+        }).catch(err => console.warn('Reset email failed:', err));
+      }
+
       setTimeout(() => {
         setIsForgotPassword(false);
         setIsLogin(true);
@@ -268,7 +352,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
               <div>
                 <label className="block text-[10px] font-bold text-neutral-600 uppercase tracking-wider mb-1.5">
                   {isLogin 
-                    ? role === 'temple_team' ? 'Team Name / Email / Phone' : 'Username / Email / Phone'
+                    ? role === 'temple_team' ? 'Team Name / Email' : 'Username / Email'
                     : role === 'temple_team' ? 'Team Name' : 'Username'
                   }
                 </label>
@@ -281,7 +365,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder={isLogin
-                      ? role === 'temple_team' ? "Team Name, Email, or Phone" : "Username, Email, or Phone"
+                      ? role === 'temple_team' ? "Team Name or Email" : "Username or Email"
                       : role === 'temple_team' ? "e.g., Sunday Seva Squad" : "Enter your username or name"
                     }
                     className="w-full pl-10 pr-4 py-3 bg-white border border-[#EBE7DF] rounded-xl text-neutral-800 placeholder-neutral-400 focus:outline-hidden focus:ring-1 focus:ring-[#C88A8A] focus:border-[#C88A8A] text-sm transition-all"

@@ -320,14 +320,19 @@ export async function deleteDocumentsByField(
 }
 
 // User Auth Database Operations
-export async function getUserByPhoneNumber(phone: string): Promise<User | null> {
-  const trimmedPhone = phone.trim();
-  if (!trimmedPhone) return null;
+export async function getUserByEmailOrUsername(queryStr: string): Promise<User | null> {
+  const trimmed = queryStr.trim();
+  if (!trimmed) return null;
+  const lower = trimmed.toLowerCase();
 
   const findLocally = () => {
     const saved = localStorage.getItem('gather_users_local');
     const users: User[] = saved ? JSON.parse(saved) : [];
-    return users.find(u => u.phoneNumber === trimmedPhone) || null;
+    return users.find(u => 
+      (u.email && u.email.trim().toLowerCase() === lower) ||
+      (u.name && u.name.trim().toLowerCase() === lower) ||
+      (u.phoneNumber && u.phoneNumber.trim() === trimmed)
+    ) || null;
   };
 
   if (!isFirebaseConfigured || !db || !isFirestoreHealthy) {
@@ -336,20 +341,27 @@ export async function getUserByPhoneNumber(phone: string): Promise<User | null> 
 
   try {
     const colRef = collection(db, 'users');
-    const q = query(colRef, where('phoneNumber', '==', trimmedPhone));
-    const querySnapshot = await withTimeout(getDocs(q), 5000);
-    if (querySnapshot.empty) {
-      return null;
-    }
+    const querySnapshot = await withTimeout(getDocs(colRef), 5000);
     let found: User | null = null;
     querySnapshot.forEach((docSnap) => {
-      found = docSnap.data() as User;
+      const u = docSnap.data() as User;
+      if (
+        (u.email && u.email.trim().toLowerCase() === lower) ||
+        (u.name && u.name.trim().toLowerCase() === lower) ||
+        (u.phoneNumber && u.phoneNumber.trim() === trimmed)
+      ) {
+        found = u;
+      }
     });
-    return found;
+    return found || findLocally();
   } catch (e) {
-    console.warn("Firebase query by phone failed, trying local storage:", e);
+    console.warn("Firebase query user failed, trying local storage:", e);
     return findLocally();
   }
+}
+
+export async function getUserByPhoneNumber(phone: string): Promise<User | null> {
+  return getUserByEmailOrUsername(phone);
 }
 
 export async function registerUser(

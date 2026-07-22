@@ -120,23 +120,42 @@ export default function App() {
     }
     setPrefilledDate(undefined);
 
-    // Dispatch fully automated background email notification for free
-    const recipientEmail = currentUser?.email || (currentUser?.phoneNumber?.includes('@') ? currentUser.phoneNumber : `${currentUser?.name.toLowerCase().replace(/\s+/g, '')}@example.com`);
-    sendAutomatedEmail({
-      to: recipientEmail,
-      subject: `[GatherCraft Automated Email] Gathering Event Notice: ${savedEventTitle}`,
-      html: buildEventEmailHtml({
-        eventTitle: savedEventTitle,
-        eventDate: formData.date,
-        eventTime: formData.time,
-        type: formData.type,
-        description: formData.description,
-        updateMessage: 'Automated notification: Event details have been created/updated.'
-      })
-    }).then((res) => {
-      if (res.success) {
-        showEmailNotice(`✉️ Automated email sent for "${savedEventTitle}"!`, res.previewUrl);
-      }
+    // Dispatch fully automated background email notification to creator & invited guests
+    const recipients = new Set<string>();
+    if (currentUser?.email && currentUser.email.includes('@')) {
+      recipients.add(currentUser.email.trim());
+    }
+
+    if (formData.invitedPhones && Array.isArray(formData.invitedPhones)) {
+      formData.invitedPhones.forEach((invitee) => {
+        if (invitee && invitee.includes('@')) {
+          recipients.add(invitee.trim());
+        }
+      });
+    }
+
+    // Fallback if no valid emails found
+    if (recipients.size === 0 && currentUser?.name) {
+      recipients.add(`${currentUser.name.toLowerCase().replace(/\s+/g, '')}@example.com`);
+    }
+
+    recipients.forEach((targetEmail) => {
+      sendAutomatedEmail({
+        to: targetEmail,
+        subject: `[GatherCraft Email] Gathering Event Notice: ${savedEventTitle}`,
+        html: buildEventEmailHtml({
+          eventTitle: savedEventTitle,
+          eventDate: formData.date,
+          eventTime: formData.time,
+          type: formData.type,
+          description: formData.description,
+          updateMessage: `Automated invitation & event details for ${savedEventTitle}.`
+        })
+      }).then((res) => {
+        if (res.success && targetEmail === currentUser?.email) {
+          showEmailNotice(`✉️ Automated email sent to ${targetEmail} for "${savedEventTitle}"!`, res.previewUrl);
+        }
+      }).catch(err => console.warn('Event notification email failed:', err));
     });
   };
 

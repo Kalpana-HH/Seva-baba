@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Event, User } from '../types';
 import { Calendar, Users, Check, X, Search, Plus, Trash, UserCheck, Landmark, Compass } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { getUserByPhoneNumber } from '../lib/firebase';
+import { getUserByEmailOrUsername } from '../lib/firebase';
 
 interface EventFormProps {
   onSubmit: (event: Omit<Event, 'id' | 'createdAt'>) => void;
@@ -27,26 +27,26 @@ export default function EventForm({ onSubmit, onClose, initialEvent, prefilledDa
   
   // Invitation System States
   const [invitedPhones, setInvitedPhones] = useState<string[]>(initialEvent?.invitedPhones || []);
-  const [invitedNames, setInvitedNames] = useState<Record<string, string>>({}); // phone -> name cache
-  const [phoneInput, setPhoneInput] = useState('');
+  const [invitedNames, setInvitedNames] = useState<Record<string, string>>({}); // identifier -> name/email cache
+  const [inviteInput, setInviteInput] = useState('');
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [lookupSuccess, setLookupSuccess] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
 
-  // Load human names for pre-existing invited phone numbers
+  // Load human names for pre-existing invited guests
   useEffect(() => {
     const loadInvitedNames = async () => {
       const details: Record<string, string> = {};
-      for (const phone of invitedPhones) {
+      for (const item of invitedPhones) {
         try {
-          const usr = await getUserByPhoneNumber(phone);
+          const usr = await getUserByEmailOrUsername(item);
           if (usr) {
-            details[phone] = usr.name;
+            details[item] = usr.email ? `${usr.name} (${usr.email})` : usr.name;
           } else {
-            details[phone] = 'Registered User';
+            details[item] = item;
           }
         } catch {
-          details[phone] = 'Registered User';
+          details[item] = item;
         }
       }
       setInvitedNames(details);
@@ -60,28 +60,29 @@ export default function EventForm({ onSubmit, onClose, initialEvent, prefilledDa
     e.preventDefault();
     setLookupError(null);
     setLookupSuccess(null);
-    const cleanedPhone = phoneInput.trim();
-    if (!cleanedPhone) return;
+    const cleanedInput = inviteInput.trim();
+    if (!cleanedInput) return;
 
-    if (invitedPhones.includes(cleanedPhone)) {
-      setLookupError('This phone number is already added.');
+    if (invitedPhones.some(i => i.toLowerCase() === cleanedInput.toLowerCase())) {
+      setLookupError('This person is already added.');
       return;
     }
 
     setSearching(true);
     try {
-      const foundUser = await getUserByPhoneNumber(cleanedPhone);
+      const foundUser = await getUserByEmailOrUsername(cleanedInput);
       if (foundUser) {
-        setInvitedPhones(prev => [...prev, cleanedPhone]);
-        setInvitedNames(prev => ({ ...prev, [cleanedPhone]: foundUser.name }));
-        setPhoneInput('');
+        const identifier = foundUser.email || foundUser.name;
+        setInvitedPhones(prev => [...prev, identifier]);
+        setInvitedNames(prev => ({ ...prev, [identifier]: foundUser.email ? `${foundUser.name} (${foundUser.email})` : foundUser.name }));
+        setInviteInput('');
         setLookupSuccess(`Added ${foundUser.name} successfully!`);
         setTimeout(() => setLookupSuccess(null), 3000);
       } else {
-        setLookupError('Phone number not found in database. Ask them to sign up first!');
+        setLookupError('User not found in database. Ask them to sign up first with their email/username!');
       }
     } catch (err: any) {
-      setLookupError('Error validating phone number. Please try again.');
+      setLookupError('Error finding user. Please try again.');
     } finally {
       setSearching(false);
     }
@@ -347,7 +348,7 @@ export default function EventForm({ onSubmit, onClose, initialEvent, prefilledDa
               />
             </div>
 
-            {/* INVITATION SECTION WITH SEARCH BY PHONE NUMBER */}
+            {/* INVITATION SECTION WITH SEARCH BY EMAIL OR USERNAME */}
             <div className={`p-5 rounded-2xl border ${
               eventType === 'temple' 
                 ? 'bg-amber-50/15 border-amber-200/50' 
@@ -358,8 +359,8 @@ export default function EventForm({ onSubmit, onClose, initialEvent, prefilledDa
               </h3>
               <p className="text-[11px] text-neutral-500 mb-3.5 leading-relaxed">
                 {eventType === 'temple'
-                  ? 'Add temple team volunteers to this service. They will instantly see this seva on their dashboard to contribute food items.'
-                  : 'Invite guests by their registered phone numbers. They can edit and add to the shared dish planner.'}
+                  ? 'Add temple team volunteers by email or username. They will see this seva on their dashboard to contribute food items.'
+                  : 'Invite guests by their registered email or username. They can edit and add to the shared dish planner.'}
               </p>
 
               {/* Invitation input */}
@@ -369,20 +370,20 @@ export default function EventForm({ onSubmit, onClose, initialEvent, prefilledDa
                     <Search size={14} />
                   </span>
                   <input
-                    type="tel"
-                    value={phoneInput}
+                    type="text"
+                    value={inviteInput}
                     onChange={(e) => {
-                      setPhoneInput(e.target.value);
+                      setInviteInput(e.target.value);
                       setLookupError(null);
                     }}
-                    placeholder="Enter phone number (e.g. 5551234567)"
+                    placeholder="Enter email or username (e.g. user@example.com or Username)"
                     className="w-full pl-9 pr-4 py-2 bg-white border border-neutral-200 rounded-xl text-xs focus:outline-hidden focus:ring-1 focus:ring-neutral-400"
                   />
                 </div>
                 <button
                   type="button"
                   onClick={handleAddInvitee}
-                  disabled={searching || !phoneInput.trim()}
+                  disabled={searching || !inviteInput.trim()}
                   className={`px-4 py-2 text-xs font-semibold rounded-xl cursor-pointer transition shadow-3xs hover:shadow-2xs flex items-center gap-1.5 ${
                     eventType === 'temple'
                       ? 'bg-amber-700 hover:bg-amber-800 text-white disabled:bg-neutral-300'
@@ -420,16 +421,16 @@ export default function EventForm({ onSubmit, onClose, initialEvent, prefilledDa
                   <p className="text-[10px] text-neutral-400 italic">No one invited yet.</p>
                 ) : (
                   <div className="flex flex-wrap gap-2 pt-1">
-                    {invitedPhones.map((phone) => (
+                    {invitedPhones.map((key) => (
                       <span
-                        key={phone}
+                        key={key}
                         className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-neutral-250 rounded-xl text-xs font-medium text-neutral-700 shadow-3xs"
                       >
                         <UserCheck size={12} className={eventType === 'temple' ? 'text-amber-600' : 'text-[#C88A8A]'} />
-                        <span>{invitedNames[phone] || 'Registered User'} ({phone})</span>
+                        <span>{invitedNames[key] || key}</span>
                         <button
                           type="button"
-                          onClick={() => handleRemoveInvitee(phone)}
+                          onClick={() => handleRemoveInvitee(key)}
                           className="p-0.5 text-neutral-400 hover:text-red-500 rounded-full transition cursor-pointer"
                         >
                           <X size={12} />
