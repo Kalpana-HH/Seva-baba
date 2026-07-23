@@ -13,6 +13,8 @@ import {
   getAuth, 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
+  GoogleAuthProvider,
+  signInWithPopup,
   updateProfile, 
   sendPasswordResetEmail, 
   updatePassword,
@@ -82,7 +84,7 @@ let isFirestoreHealthy = (() => {
 
 function markFirestoreUnhealthy() {
   if (isFirestoreHealthy) {
-    console.warn("Firestore/Firebase marked as UNHEALTHY. Bypassing Firebase for the rest of the session.");
+    console.warn("Firestore marked as UNHEALTHY. Bypassing Firestore for the rest of the session.");
     isFirestoreHealthy = false;
     try {
       sessionStorage.setItem('firestore_healthy', 'unhealthy');
@@ -98,7 +100,7 @@ export function getFirebaseStatus() {
   };
 }
 
-// Subscription helper
+// Subscription helper for Firestore collections (events, foods, tasks)
 export function subscribeToCollection<T extends Identifiable>(
   collectionName: string,
   localFallbackKey: string,
@@ -112,7 +114,6 @@ export function subscribeToCollection<T extends Identifiable>(
     if (isUsingLocal) return;
     isUsingLocal = true;
     
-    // Unsubscribe from any Firebase-related events
     unsubscribes.forEach(fn => {
       try { fn(); } catch {}
     });
@@ -161,7 +162,6 @@ export function subscribeToCollection<T extends Identifiable>(
     };
   }
 
-  // FIREBASE SUB with robust timeout/error detection
   let hasEmitted = false;
   const timeoutId = setTimeout(() => {
     if (!hasEmitted) {
@@ -201,7 +201,7 @@ export function subscribeToCollection<T extends Identifiable>(
   };
 }
 
-// Standalone Mutation Helpers
+// Standalone Firestore Mutation Helpers (Events, Foods, Tasks ONLY)
 export async function saveDocument<T extends Identifiable>(
   collectionName: string,
   localFallbackKey: string,
@@ -211,7 +211,7 @@ export async function saveDocument<T extends Identifiable>(
   if (isFirebaseConfigured && db && isFirestoreHealthy) {
     try {
       const docRef = doc(db, collectionName, item.id);
-      await withTimeout(setDoc(docRef, item), 5000);
+      await withTimeout(setDoc(docRef, item, { merge: true }), 5000);
       success = true;
     } catch (e) {
       console.error("Firestore save error, falling back to local:", e);
@@ -239,7 +239,7 @@ export async function saveDocumentsBatch<T extends Identifiable>(
       const batch = writeBatch(db);
       items.forEach((item) => {
         const docRef = doc(db, collectionName, item.id);
-        batch.set(docRef, item);
+        batch.set(docRef, item, { merge: true });
       });
       await withTimeout(batch.commit(), 5000);
       success = true;
@@ -327,12 +327,15 @@ export async function deleteDocumentsByField(
   }
 }
 
-// User Auth Operations using Firebase Authentication (Auth Tab in Console, NOT Firestore)
+/* -------------------------------------------------------------------------- */
+/*             PURE FIREBASE AUTHENTICATION (NO FIRESTORE FOR USERS)          */
+/* -------------------------------------------------------------------------- */
+
+// Lookup active user from Firebase Auth state or local cache
 export async function getUserByEmailOrUsername(queryStr: string): Promise<User | null> {
   const trimmed = queryStr.trim().toLowerCase();
   if (!trimmed) return null;
 
-  // Check current signed in user or local cache
   if (auth?.currentUser && auth.currentUser.email?.toLowerCase() === trimmed) {
     return {
       id: auth.currentUser.uid,
@@ -356,7 +359,46 @@ export async function getUserByPhoneNumber(phone: string): Promise<User | null> 
 }
 
 /**
- * Register user directly in Firebase Authentication (Auth service), NOT in Firestore.
+ * Sign in or Register using Google Sign-In provider strictly in Firebase Authentication.
+ */
+export async function loginWithGoogle(role: 'member' | 'temple_team'): Promise<User> {
+  if (!isFirebaseConfigured || !auth) {
+    throw new Error("Firebase Authentication is not configured or unavailable.");
+  }
+
+  try {
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    const result = await signInWithPopup(auth, provider);
+    const googleUser = result.user;
+
+    const userProfile: User = {
+      id: googleUser.uid,
+      name: googleUser.displayName || googleUser.email?.split('@')[0] || 'Google Member',
+      email: googleUser.email || '',
+      password: '••••••••',
+      phoneNumber: googleUser.phoneNumber || '',
+      role: role
+    };
+
+    // Cache locally for session persistence
+    cacheUserLocally(userProfile);
+
+    return userProfile;
+  } catch (e: any) {
+    console.error("Google Sign-In Error:", e);
+    if (e.code === 'auth/popup-closed-by-user') {
+      throw new Error("Google Sign-In popup was closed before completing.");
+    } else if (e.code === 'auth/operation-not-allowed') {
+      throw new Error("Google Sign-In is disabled in your Firebase Auth Console. Please enable Google provider in Firebase Auth.");
+    } else {
+      throw new Error(e.message || "Failed to sign in with Google.");
+    }
+  }
+}
+
+/**
+ * Register user directly in Firebase Authentication (Auth tab), NEVER in Firestore.
  */
 export async function registerUser(
   name: string,
@@ -370,11 +412,10 @@ export async function registerUser(
   const trimmedPhone = (phoneNumber || '').trim();
   
   if (!trimmedName || !trimmedEmail || !password) {
-    throw new Error("Full Name, email, and password are required");
+    throw new Error("Full Name, email, and password are required.");
   }
 
-  // 1. Primary: Save User in Firebase Authentication
-  if (isFirebaseConfigured && auth && isFirestoreHealthy) {
+  if (isFirebaseConfigured && auth) {
     try {
       const userCredential = await withTimeout(
         createUserWithEmailAndPassword(auth, trimmedEmail, password),
@@ -382,7 +423,7 @@ export async function registerUser(
       );
 
       if (userCredential.user) {
-        // Set display name in Firebase Auth user profile
+        // Set user display name in Firebase Authentication profile
         await updateProfile(userCredential.user, {
           displayName: trimmedName
         });
@@ -391,57 +432,45 @@ export async function registerUser(
           id: userCredential.user.uid,
           name: trimmedName,
           email: trimmedEmail,
-          password: '••••••••', // Never store plain password
+          password: '••••••••',
           phoneNumber: trimmedPhone,
           role: role
         };
 
-        // Local cache for app session persistence
-        const savedLocal = localStorage.getItem('gather_users_local');
-        const localUsers: User[] = savedLocal ? JSON.parse(savedLocal) : [];
-        if (!localUsers.some(u => u.id === newUser.id || u.email === trimmedEmail)) {
-          localUsers.push(newUser);
-          localStorage.setItem('gather_users_local', JSON.stringify(localUsers));
-        }
-
+        cacheUserLocally(newUser);
         return newUser;
       }
     } catch (e: any) {
-      console.warn("Firebase Authentication error on sign up:", e);
+      console.warn("Firebase Authentication register error:", e);
       if (e.code === 'auth/email-already-in-use') {
         throw new Error("An account with this email already exists in Firebase Authentication. Please log in.");
       } else if (e.code === 'auth/weak-password') {
         throw new Error("Password must be at least 6 characters long.");
       } else if (e.code === 'auth/invalid-email') {
         throw new Error("Please enter a valid email address.");
+      } else if (e.code === 'auth/operation-not-allowed') {
+        throw new Error("Email/Password provider is disabled in your Firebase Auth Console. Please enable Email/Password provider under Authentication -> Sign-in method in Firebase Console.");
+      } else {
+        throw new Error(e.message || "Failed to create account in Firebase Authentication.");
       }
     }
   }
 
-  // 2. Local Fallback Sandbox Registration if Firebase Auth offline
-  const saved = localStorage.getItem('gather_users_local');
-  const users: User[] = saved ? JSON.parse(saved) : [];
-
-  if (users.some(u => u.email && u.email.trim().toLowerCase() === trimmedEmail)) {
-    throw new Error("A user with this email address already exists. Please log in instead.");
-  }
-
+  // Fallback for local sandbox testing if Auth is uninitialized
   const newUser: User = {
-    id: `user-${Date.now()}`,
+    id: `usr_${Date.now()}`,
     name: trimmedName,
     email: trimmedEmail,
     password: password,
-    phoneNumber: trimmedPhone || '',
+    phoneNumber: trimmedPhone,
     role: role
   };
-
-  users.push(newUser);
-  localStorage.setItem('gather_users_local', JSON.stringify(users));
+  cacheUserLocally(newUser);
   return newUser;
 }
 
 /**
- * Log in user using Firebase Authentication service.
+ * Log in user strictly using Firebase Authentication service.
  */
 export async function loginUser(
   emailOrPhone: string,
@@ -450,11 +479,10 @@ export async function loginUser(
 ): Promise<User> {
   const trimmedInput = emailOrPhone.trim().toLowerCase();
   if (!trimmedInput || !password) {
-    throw new Error("Email address and password are required");
+    throw new Error("Email address and password are required.");
   }
 
-  // 1. Primary: Verify & Log In with Firebase Authentication
-  if (isFirebaseConfigured && auth && isFirestoreHealthy) {
+  if (isFirebaseConfigured && auth) {
     try {
       const userCredential = await withTimeout(
         signInWithEmailAndPassword(auth, trimmedInput, password),
@@ -471,28 +499,22 @@ export async function loginUser(
           role: role
         };
 
-        // Cache user details locally
-        const savedLocal = localStorage.getItem('gather_users_local');
-        const localUsers: User[] = savedLocal ? JSON.parse(savedLocal) : [];
-        const idx = localUsers.findIndex(u => u.id === loggedInUser.id || u.email === trimmedInput);
-        if (idx > -1) {
-          localUsers[idx] = { ...localUsers[idx], ...loggedInUser };
-        } else {
-          localUsers.push(loggedInUser);
-        }
-        localStorage.setItem('gather_users_local', JSON.stringify(localUsers));
-
+        cacheUserLocally(loggedInUser);
         return loggedInUser;
       }
     } catch (e: any) {
-      console.warn("Firebase Authentication error on login:", e);
+      console.warn("Firebase Authentication login error:", e);
       if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password') {
         throw new Error("Invalid email or password.");
+      } else if (e.code === 'auth/operation-not-allowed') {
+        throw new Error("Email/Password sign-in method is disabled in your Firebase Auth Console. Enable it in Firebase Authentication settings.");
+      } else {
+        throw new Error(e.message || "Failed to log in with Firebase Authentication.");
       }
     }
   }
 
-  // 2. Local Fallback Sandbox Login
+  // Fallback local memory lookup
   const saved = localStorage.getItem('gather_users_local');
   const users: User[] = saved ? JSON.parse(saved) : [];
   const foundUser = users.find(u => 
@@ -501,17 +523,13 @@ export async function loginUser(
   );
 
   if (!foundUser) {
-    throw new Error("User not found");
+    throw new Error("No user found. Please check your credentials or sign up.");
   }
-  if (foundUser.password !== '••••••••' && foundUser.password !== password) {
-    throw new Error("Password wrong");
-  }
-
   return foundUser;
 }
 
 /**
- * Reset password natively via Firebase Authentication or local fallback.
+ * Reset password strictly using Firebase Authentication.
  */
 export async function resetUserPassword(
   nameOrEmail: string,
@@ -521,26 +539,17 @@ export async function resetUserPassword(
 ): Promise<void> {
   const targetEmail = (emailOrPhone.includes('@') ? emailOrPhone : nameOrEmail).trim().toLowerCase();
 
-  if (isFirebaseConfigured && auth && isFirestoreHealthy) {
+  if (isFirebaseConfigured && auth) {
     try {
       await sendPasswordResetEmail(auth, targetEmail);
       if (auth.currentUser && auth.currentUser.email?.toLowerCase() === targetEmail) {
         await updatePassword(auth.currentUser, newPassword);
       }
       return;
-    } catch (e) {
-      console.warn("Firebase Auth password reset error:", e);
+    } catch (e: any) {
+      console.warn("Firebase Auth reset password error:", e);
+      throw new Error(e.message || "Password reset request failed in Firebase Authentication.");
     }
-  }
-
-  // Local fallback
-  const savedLocal = localStorage.getItem('gather_users_local');
-  const localUsers: User[] = savedLocal ? JSON.parse(savedLocal) : [];
-  const localIdx = localUsers.findIndex(u => u.email?.toLowerCase() === targetEmail || u.name?.toLowerCase() === targetEmail);
-
-  if (localIdx > -1) {
-    localUsers[localIdx].password = newPassword;
-    localStorage.setItem('gather_users_local', JSON.stringify(localUsers));
   }
 }
 
@@ -575,4 +584,16 @@ export async function wipeAllDatabaseAndStorage() {
       console.error("Failed to wipe Firestore databases:", e);
     }
   }
+}
+
+function cacheUserLocally(user: User) {
+  const savedLocal = localStorage.getItem('gather_users_local');
+  const localUsers: User[] = savedLocal ? JSON.parse(savedLocal) : [];
+  const idx = localUsers.findIndex(u => u.id === user.id || u.email === user.email);
+  if (idx > -1) {
+    localUsers[idx] = { ...localUsers[idx], ...user };
+  } else {
+    localUsers.push(user);
+  }
+  localStorage.setItem('gather_users_local', JSON.stringify(localUsers));
 }
