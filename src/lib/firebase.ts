@@ -380,25 +380,15 @@ export async function loginWithGoogle(
       return userProfile;
     }
 
-    // Handle domain unauthorized error on Vercel or other deployments
-    if (code === 'auth/unauthorized-domain' || e?.message?.includes('not authorized')) {
-      const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'your app domain';
-      throw new Error(
-        `Domain Not Authorized: "${currentHost}" is not added to Authorized Domains in Firebase Console. ` +
-        `To fix: Go to Firebase Console > Authentication > Settings > Authorized Domains and add "${currentHost}". ` +
-        `Or sign up using your Email & Password below!`
-      );
-    }
-
-    if (code === 'auth/popup-blocked') {
-      throw new Error("Google Sign-In popup was blocked by your browser. Please allow popups or sign up with Email & Password below.");
-    }
-
-    if (code === 'auth/popup-closed-by-user') {
-      throw new Error("Google Sign-In window was closed before completing sign in.");
-    }
-
-    throw new Error(e?.message || "Google Sign-In failed. Please try signing up with Email & Password below.");
+    // If popup fails and no real email was provided in parameters, signal that user email & name are needed
+    const customError: any = new Error(
+      code === 'auth/unauthorized-domain' || e?.message?.includes('not authorized')
+        ? `Domain authorization constraint on ${typeof window !== 'undefined' ? window.location.hostname : 'domain'}`
+        : "Google Sign-In popup could not complete."
+    );
+    customError.needsGooglePrompt = true;
+    customError.originalCode = code;
+    throw customError;
   }
 }
 
