@@ -276,24 +276,10 @@ export async function deleteDocumentsByField(
 /* -------------------------------------------------------------------------- */
 
 /**
- * Save user profile to Firestore `/users` collection and local cache.
+ * Save user profile to local cache (User profiles are kept in Firebase Authentication, not Firestore /users).
  */
 export async function saveUserProfile(user: User) {
   cacheUserLocally(user);
-  if (isFirebaseConfigured && db) {
-    try {
-      const userRef = doc(db, 'users', user.id);
-      await setDoc(userRef, {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        phoneNumber: user.phoneNumber || ''
-      }, { merge: true });
-    } catch (e) {
-      console.warn("Could not save user profile to Firestore /users:", e);
-    }
-  }
 }
 
 export async function getUserByEmailOrUsername(queryStr: string): Promise<User | null> {
@@ -310,7 +296,7 @@ export async function getUserByEmailOrUsername(queryStr: string): Promise<User |
     };
   }
 
-  // First check local cache
+  // Check local cache
   const saved = localStorage.getItem('gather_users_local');
   const users: User[] = saved ? JSON.parse(saved) : [];
   const foundLocal = users.find(u => 
@@ -318,26 +304,6 @@ export async function getUserByEmailOrUsername(queryStr: string): Promise<User |
     (u.name && u.name.trim().toLowerCase() === trimmed)
   );
   if (foundLocal) return foundLocal;
-
-  // Then check Firestore /users collection
-  if (isFirebaseConfigured && db) {
-    try {
-      const snap = await getDocs(collection(db, 'users'));
-      let foundDoc: User | null = null;
-      snap.forEach((d) => {
-        const u = d.data() as User;
-        if (u.email?.toLowerCase() === trimmed || u.name?.toLowerCase() === trimmed) {
-          foundDoc = u;
-        }
-      });
-      if (foundDoc) {
-        cacheUserLocally(foundDoc);
-        return foundDoc;
-      }
-    } catch (e) {
-      console.warn("Firestore /users query error:", e);
-    }
-  }
 
   return null;
 }
@@ -395,7 +361,7 @@ export async function loginWithGoogle(role: 'member' | 'temple_team', providedEm
 }
 
 /**
- * Register user into Firebase Authentication and save profile in Firestore /users.
+ * Register user into Firebase Authentication.
  */
 export async function registerUser(
   name: string,
@@ -464,7 +430,7 @@ export async function registerUser(
 }
 
 /**
- * Log in user using Firebase Authentication or Firestore user document lookup.
+ * Log in user using Firebase Authentication.
  */
 export async function loginUser(
   emailOrPhone: string,
