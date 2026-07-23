@@ -17,8 +17,10 @@ import {
   saveDocumentsBatch, 
   deleteDocument, 
   deleteDocumentsByField,
-  isFirebaseConfigured
+  logoutUser,
+  auth
 } from './lib/firebase';
+import { updateProfile } from 'firebase/auth';
 
 export default function App() {
   // Authentication State
@@ -70,7 +72,23 @@ export default function App() {
   };
 
   const handleSaveSettings = async (updatedUser: User) => {
-    await saveDocument<User>('users', 'gather_users_local', updatedUser);
+    if (auth?.currentUser) {
+      try {
+        await updateProfile(auth.currentUser, { displayName: updatedUser.name });
+      } catch (e) {
+        console.warn("Failed to update Firebase Auth displayName:", e);
+      }
+    }
+    const savedLocal = localStorage.getItem('gather_users_local');
+    const localUsers: User[] = savedLocal ? JSON.parse(savedLocal) : [];
+    const idx = localUsers.findIndex(u => u.id === updatedUser.id || u.email === updatedUser.email);
+    if (idx > -1) {
+      localUsers[idx] = updatedUser;
+    } else {
+      localUsers.push(updatedUser);
+    }
+    localStorage.setItem('gather_users_local', JSON.stringify(localUsers));
+
     setCurrentUser(updatedUser);
     localStorage.setItem('gather_user', JSON.stringify(updatedUser));
   };
@@ -80,9 +98,9 @@ export default function App() {
     localStorage.setItem('gather_user', JSON.stringify(user));
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await logoutUser();
     setCurrentUser(null);
-    localStorage.removeItem('gather_user');
   };
 
   // Set up Firebase Real-Time Synchronization with LocalStorage backup

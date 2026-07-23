@@ -1,16 +1,5 @@
 {
   "entities": {
-    "User": {
-      "title": "User",
-      "description": "An application user",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "password": { "type": "string" }
-      },
-      "required": ["id", "name", "password"]
-    },
     "Event": {
       "title": "Event",
       "description": "A scheduled gathering",
@@ -59,10 +48,6 @@
     }
   },
   "firestore": {
-    "/users/{userId}": {
-      "schema": "User",
-      "description": "App users for simple authentication"
-    },
     "/events/{eventId}": {
       "schema": "Event",
       "description": "Private scheduled gatherings"
