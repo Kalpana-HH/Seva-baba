@@ -6,8 +6,10 @@ import FoodList from './components/FoodList';
 import AuthScreen from './components/AuthScreen';
 import SettingsModal from './components/SettingsModal';
 import ResetPasswordModal from './components/ResetPasswordModal';
+import CalendarConsentModal from './components/CalendarConsentModal';
 import Logo from './components/Logo';
 import { sendAutomatedEmail, buildEventEmailHtml } from './lib/email';
+import { syncEventToGoogleCalendar } from './lib/googleCalendar';
 import { Plus, ChevronLeft, Calendar, Users, Utensils, Edit3, Settings, CheckCircle2, ExternalLink, Heart } from 'lucide-react';
 
 import { motion, AnimatePresence } from 'motion/react';
@@ -49,6 +51,7 @@ export default function App() {
   const [prefilledDate, setPrefilledDate] = useState<string | undefined>(undefined);
   const [dbError, setDbError] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [showCalendarConsentModal, setShowCalendarConsentModal] = useState(false);
   const [resetPasswordParams, setResetPasswordParams] = useState<{ email: string; name: string; role: 'member' | 'temple_team' } | null>(null);
   const [emailToast, setEmailToast] = useState<{ message: string; previewUrl?: string } | null>(null);
 
@@ -93,9 +96,28 @@ export default function App() {
     localStorage.setItem('gather_user', JSON.stringify(updatedUser));
   };
 
-  const handleAuthSuccess = (user: User) => {
+  const handleAuthSuccess = (user: User, isNewSignUp?: boolean) => {
     setCurrentUser(user);
     localStorage.setItem('gather_user', JSON.stringify(user));
+    if (isNewSignUp || user.autoSyncGoogleCalendar === undefined) {
+      setShowCalendarConsentModal(true);
+    }
+  };
+
+  const handleCalendarConsentResponse = async (consent: boolean) => {
+    if (!currentUser) return;
+    const updatedUser: User = {
+      ...currentUser,
+      autoSyncGoogleCalendar: consent
+    };
+    await handleSaveSettings(updatedUser);
+    setShowCalendarConsentModal(false);
+
+    if (consent) {
+      showEmailNotice("📅 Google Calendar Auto-Sync Enabled! Created events will sync automatically.");
+    } else {
+      showEmailNotice("⚪ Google Calendar Sync disabled. You can enable it anytime in Settings.");
+    }
   };
 
   const handleLogout = async () => {
@@ -239,6 +261,26 @@ export default function App() {
         }
       }).catch(err => console.warn('Guest invitation email failed:', err));
     });
+
+    // 3. Auto-sync to Google Calendar if enabled by user
+    if (currentUser?.autoSyncGoogleCalendar) {
+      const eventForSync: Event = {
+        id: targetEventId || `event-${Date.now()}`,
+        title: savedEventTitle,
+        type: formData.type,
+        date: formData.date,
+        time: formData.time,
+        guestsCount: formData.guestsCount,
+        description: formData.description,
+        createdAt: new Date().toISOString()
+      };
+      const syncResult = syncEventToGoogleCalendar(eventForSync, eventLink, Array.from(guestEmails));
+      if (syncResult.calendarUrl) {
+        setTimeout(() => {
+          showEmailNotice(`📅 Event auto-synced to Google Calendar!`, syncResult.calendarUrl);
+        }, 1200);
+      }
+    }
   };
 
   const handleDeleteEvent = async (id: string) => {
@@ -747,6 +789,16 @@ export default function App() {
             currentUser={currentUser}
             onClose={() => setSettingsOpen(false)}
             onSave={handleSaveSettings}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Google Calendar Onboarding Consent Modal */}
+      <AnimatePresence>
+        {showCalendarConsentModal && currentUser && (
+          <CalendarConsentModal
+            userName={currentUser.name || 'Friend'}
+            onRespond={handleCalendarConsentResponse}
           />
         )}
       </AnimatePresence>

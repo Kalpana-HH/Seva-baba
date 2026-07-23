@@ -21,6 +21,7 @@ export interface User {
   password: string; // Simple plain-text or hashed password stored securely
   phoneNumber?: string;
   role: 'member' | 'temple_team';
+  autoSyncGoogleCalendar?: boolean; // User preference for Google Calendar auto-sync
 }
 
 export interface FoodItem {

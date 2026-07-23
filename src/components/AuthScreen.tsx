@@ -7,7 +7,7 @@ import Logo from './Logo';
 import { User as UserIcon, Lock, ArrowRight, Compass, Landmark, KeyRound, ArrowLeft, Check, Mail, Send } from 'lucide-react';
 
 interface AuthScreenProps {
-  onAuthSuccess: (user: User) => void;
+  onAuthSuccess: (user: User, isNewSignUp?: boolean) => void;
 }
 
 export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
@@ -61,7 +61,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
           }).catch(err => console.warn('Welcome email failed:', err));
         }
       }
-      onAuthSuccess(user);
+      onAuthSuccess(user, !isLogin);
     } catch (err: any) {
       setError(err.message || "Database error: can't process auth request");
     } finally {
@@ -83,7 +83,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
           html: buildLoginAlertEmailHtml(user.name)
         }).catch(err => console.warn('Google login email failed:', err));
       }
-      onAuthSuccess(user);
+      onAuthSuccess(user, !isLogin || user.autoSyncGoogleCalendar === undefined);
     } catch (err: any) {
       console.error('Google Sign-In notice:', err);
       setError(err.message || "Google Sign-In failed.");

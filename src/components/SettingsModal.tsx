@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { User } from '../types';
-import { X, Save, User as UserIcon, KeyRound, Mail, Send, Check } from 'lucide-react';
+import { X, Save, User as UserIcon, KeyRound, Mail, Send, Check, Calendar } from 'lucide-react';
 import { motion } from 'motion/react';
 import { sendAutomatedEmail, buildPasswordResetLinkEmailHtml } from '../lib/email';
 
@@ -14,6 +14,7 @@ export default function SettingsModal({ currentUser, onClose, onSave }: Settings
   const isTempleUser = currentUser.role === 'temple_team';
   const [name, setName] = useState(currentUser.name);
   const [email, setEmail] = useState(currentUser.email || '');
+  const [autoSyncCalendar, setAutoSyncCalendar] = useState(currentUser.autoSyncGoogleCalendar ?? false);
   
   // Password reset via email state
   const [sendingReset, setSendingReset] = useState(false);
@@ -74,6 +75,7 @@ export default function SettingsModal({ currentUser, onClose, onSave }: Settings
         ...currentUser,
         name: trimmedName,
         email: trimmedEmail,
+        autoSyncGoogleCalendar: autoSyncCalendar,
       };
       await onSave(updatedUser);
       setSuccess(true);
@@ -169,6 +171,52 @@ export default function SettingsModal({ currentUser, onClose, onSave }: Settings
               placeholder="e.g., name@example.com"
               required
             />
+          </div>
+
+          {/* Google Calendar Integration Section */}
+          <div className="pt-3 border-t border-neutral-200/60 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider flex items-center gap-1">
+                <Calendar size={12} /> Google Calendar Auto-Sync
+              </label>
+              <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
+                autoSyncCalendar 
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                  : 'bg-neutral-100 text-neutral-500 border-neutral-200'
+              }`}>
+                {autoSyncCalendar ? '🟢 Active' : '⚪ Disabled'}
+              </span>
+            </div>
+
+            <div className="bg-white border border-neutral-200 rounded-xl p-3.5 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <p className="text-xs font-semibold text-neutral-800">
+                    Auto-sync created events
+                  </p>
+                  <p className="text-[11px] text-neutral-500 leading-normal">
+                    Automatically send new gatherings & Sevas to your Google Calendar.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setAutoSyncCalendar(!autoSyncCalendar)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                    autoSyncCalendar ? 'bg-[#C88A8A]' : 'bg-neutral-300'
+                  }`}
+                  role="switch"
+                  aria-checked={autoSyncCalendar}
+                  id="settings-calendar-toggle-btn"
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                      autoSyncCalendar ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Password Reset Section */}
