@@ -6,6 +6,7 @@ import FoodList from './components/FoodList';
 import AuthScreen from './components/AuthScreen';
 import SettingsModal from './components/SettingsModal';
 import ResetPasswordModal from './components/ResetPasswordModal';
+import Logo from './components/Logo';
 import { sendAutomatedEmail, buildEventEmailHtml } from './lib/email';
 import { Plus, ChevronLeft, Calendar, Users, Utensils, Edit3, Settings, CheckCircle2, ExternalLink, Heart } from 'lucide-react';
 
@@ -267,7 +268,7 @@ export default function App() {
       const recipientEmail = currentUser?.email || (currentUser?.phoneNumber?.includes('@') ? currentUser.phoneNumber : `${currentUser?.name.toLowerCase().replace(/\s+/g, '')}@example.com`);
       sendAutomatedEmail({
         to: recipientEmail,
-        subject: `[GatherCraft Automated Email] Food Dish Added: ${newFood.name}`,
+        subject: `[The Menu Crew] Food Dish Added: ${newFood.name}`,
         html: `
           <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e5e7eb; border-radius: 12px; max-width: 500px;">
             <h3 style="color: #9d5d5d; margin-top: 0;">New Food Item Added</h3>
@@ -311,7 +312,7 @@ export default function App() {
         const recipientEmail = currentUser?.email || (currentUser?.phoneNumber?.includes('@') ? currentUser.phoneNumber : `${currentUser?.name.toLowerCase().replace(/\s+/g, '')}@example.com`);
         sendAutomatedEmail({
           to: recipientEmail,
-          subject: `[GatherCraft Automated Email] Dish Signed Up: ${item.name}`,
+          subject: `[The Menu Crew] Dish Signed Up: ${item.name}`,
           html: `
             <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e5e7eb; border-radius: 12px; max-width: 500px;">
               <h3 style="color: #9d5d5d; margin-top: 0;">Dish Signup Update</h3>
@@ -417,26 +418,13 @@ export default function App() {
       {/* 1. Header Banner */}
       <header className="bg-white border-b border-[#EBE7DF] sticky top-0 z-30" id="main-app-header">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => handleSelectEvent(null)}>
-            {isTempleUser ? (
-              <div className="w-8 h-8 bg-amber-600 rounded-xl flex items-center justify-center text-white font-medium text-lg shadow-sm">
-                🕌
-              </div>
-            ) : (
-              <div className="w-8 h-8 bg-[#C88A8A] rounded-xl flex items-center justify-center text-white font-medium text-lg shadow-sm">
-                ✨
-              </div>
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => handleSelectEvent(null)}>
+            <Logo layout="horizontal" size="sm" showSlogan={true} />
+            {isTempleUser && (
+              <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md border border-amber-200">
+                Temple Seva
+              </span>
             )}
-            <div>
-              <span className="font-serif font-semibold text-neutral-900 tracking-wide">
-                {isTempleUser ? 'Temple Seva' : 'Gather & Grace'}
-              </span>
-              <span className={`text-[10px] uppercase font-bold tracking-widest block font-sans ${
-                isTempleUser ? 'text-amber-700' : 'text-[#C88A8A]'
-              }`}>
-                {isTempleUser ? 'Kitchen & Volunteer Portal' : "Women's Event Planner"}
-              </span>
-            </div>
           </div>
 
           <div className="flex items-center gap-4">

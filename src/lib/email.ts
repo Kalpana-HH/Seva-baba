@@ -53,7 +53,7 @@ export function buildBaseEmailWrapper(content: string, preheader: string = ''): 
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>GatherCraft Planner</title>
+      <title>The Menu Crew — Tap. Sign up. Eat.</title>
     </head>
     <body style="margin: 0; padding: 0; background-color: #f4f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #1f2937;">
       ${preheader ? `<div style="display: none; max-height: 0px; overflow: hidden;">${preheader}</div>` : ''}
@@ -64,15 +64,15 @@ export function buildBaseEmailWrapper(content: string, preheader: string = ''): 
               
               <!-- Brand Header -->
               <tr>
-                <td style="padding: 28px 32px; background: linear-gradient(135deg, #fcf8f6 0%, #f7f1ed 100%); border-bottom: 1px solid #f0e6e0; text-align: center;">
+                <td style="padding: 28px 32px; background: linear-gradient(135deg, #fffbf0 0%, #fef3c7 100%); border-bottom: 1px solid #fcd34d; text-align: center;">
                   <table border="0" cellpadding="0" cellspacing="0" width="100%">
                     <tr>
                       <td align="center">
-                        <div style="display: inline-block; width: 44px; height: 44px; background-color: #9d5d5d; border-radius: 12px; line-height: 44px; text-align: center; color: #ffffff; font-size: 22px; font-weight: bold; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(157, 93, 93, 0.25);">
-                          🍱
+                        <div style="display: inline-block; width: 48px; height: 48px; background-color: #d97706; border-radius: 12px; line-height: 48px; text-align: center; color: #ffffff; font-size: 24px; font-weight: bold; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(217, 119, 6, 0.25);">
+                          🍽️
                         </div>
-                        <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: #4a2c2c; letter-spacing: -0.3px;">GatherCraft Planner</h1>
-                        <p style="margin: 4px 0 0 0; font-size: 13px; color: #8c6b6b; font-weight: 500;">Event & Culinary Coordination Platform</p>
+                        <h1 style="margin: 0; font-size: 24px; font-weight: 800; color: #78350f; letter-spacing: -0.3px; text-transform: uppercase;">The Menu Crew</h1>
+                        <p style="margin: 4px 0 0 0; font-size: 13px; color: #92400e; font-weight: 600;">Tap. Sign up. Eat.</p>
                       </td>
                     </tr>
                   </table>
@@ -89,8 +89,8 @@ export function buildBaseEmailWrapper(content: string, preheader: string = ''): 
               <!-- Footer -->
               <tr>
                 <td style="padding: 24px 32px; background-color: #f9fafb; border-top: 1px solid #f3f4f6; text-align: center;">
-                  <p style="margin: 0 0 8px 0; font-size: 12px; color: #6b7280; font-weight: 500;">
-                    GatherCraft Planner &bull; Dedicated Event Coordination
+                  <p style="margin: 0 0 8px 0; font-size: 12px; color: #6b7280; font-weight: 600;">
+                    The Menu Crew &bull; Tap. Sign up. Eat.
                   </p>
                   <p style="margin: 0; font-size: 11px; color: #9ca3af; line-height: 1.5;">
                     This is an automated operational notification. If you did not request this communication or have questions, please reach out to your event organizer.
@@ -216,7 +216,7 @@ export function buildWelcomeEmailHtml(userName: string, userEmail: string, role:
     </h2>
 
     <p style="margin: 0 0 20px 0; font-size: 14px; line-height: 1.6; color: #4b5563;">
-      Thank you for registering with <strong>GatherCraft Planner</strong>. Your account has been verified and is ready to organize culinary gatherings and temple sevas.
+      Thank you for registering with <strong>The Menu Crew</strong>. Your account has been verified and is ready to organize culinary gatherings and temple sevas.
     </p>
 
     <!-- Account Details Table -->
@@ -251,7 +251,7 @@ export function buildWelcomeEmailHtml(userName: string, userEmail: string, role:
     </ul>
   `;
 
-  return buildBaseEmailWrapper(innerContent, `Welcome to GatherCraft Planner, ${userName}!`);
+  return buildBaseEmailWrapper(innerContent, `Welcome to The Menu Crew, ${userName}!`);
 }
 
 export function buildLoginAlertEmailHtml(userName: string): string {
@@ -271,7 +271,7 @@ export function buildLoginAlertEmailHtml(userName: string): string {
     </p>
 
     <p style="margin: 0 0 20px 0; font-size: 14px; line-height: 1.6; color: #4b5563;">
-      We detected a successful sign-in to your <strong>GatherCraft Planner</strong> account on <strong>${currentFormattedTime}</strong>.
+      We detected a successful sign-in to your <strong>The Menu Crew</strong> account on <strong>${currentFormattedTime}</strong>.
     </p>
 
     <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-left: 4px solid #16a34a; border-radius: 8px; margin-bottom: 20px;">
@@ -297,7 +297,7 @@ export function buildPasswordResetLinkEmailHtml(userName: string, userEmail: str
     </p>
 
     <p style="margin: 0 0 20px 0; font-size: 14px; line-height: 1.6; color: #4b5563;">
-      We received a request to reset the password for your GatherCraft Planner account associated with <strong>${userEmail}</strong>. Click the button below to set a new password:
+      We received a request to reset the password for your The Menu Crew account associated with <strong>${userEmail}</strong>. Click the button below to set a new password:
     </p>
 
     <!-- Reset Link Button -->

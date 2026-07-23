@@ -39,7 +39,7 @@ export default function SettingsModal({ currentUser, onClose, onSave }: Settings
       
       await sendAutomatedEmail({
         to: targetEmail,
-        subject: `Reset Your GatherCraft Planner Password`,
+        subject: `Reset Your The Menu Crew Password`,
         html: buildPasswordResetLinkEmailHtml(name || currentUser.name, targetEmail, resetLink)
       });
 

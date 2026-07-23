@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { User } from '../types';
 import { registerUser, loginUser, getUserByEmailOrUsername, getFirebaseStatus } from '../lib/firebase';
 import { sendAutomatedEmail, buildWelcomeEmailHtml, buildLoginAlertEmailHtml, buildPasswordResetLinkEmailHtml } from '../lib/email';
+import Logo from './Logo';
 import { User as UserIcon, Lock, ArrowRight, Compass, Landmark, KeyRound, ArrowLeft, Check, Mail, Send } from 'lucide-react';
 
 interface AuthScreenProps {
@@ -23,9 +24,16 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !password || (!isLogin && !email.trim())) {
-      setError("Please fill out all required fields.");
-      return;
+    if (isLogin) {
+      if (!email.trim() || !password) {
+        setError("Please enter your email address and password.");
+        return;
+      }
+    } else {
+      if (!name.trim() || !email.trim() || !password) {
+        setError("Please enter your full name, email address, and password.");
+        return;
+      }
     }
 
     setError(null);
@@ -35,12 +43,12 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     try {
       let user: User;
       if (isLogin) {
-        user = await loginUser(name, password, role);
+        user = await loginUser(email, password, role);
         // Send login alert email if email is present
         if (user.email && user.email.includes('@')) {
           sendAutomatedEmail({
             to: user.email,
-            subject: `Security Alert: Successful Sign-In to GatherCraft Planner`,
+            subject: `Security Alert: Successful Sign-In to The Menu Crew`,
             html: buildLoginAlertEmailHtml(user.name)
           }).catch(err => console.warn('Login email failed:', err));
         }
@@ -50,7 +58,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         if (user.email && user.email.includes('@')) {
           sendAutomatedEmail({
             to: user.email,
-            subject: `Welcome to GatherCraft Planner, ${user.name}!`,
+            subject: `Welcome to The Menu Crew, ${user.name}!`,
             html: buildWelcomeEmailHtml(user.name, user.email, user.role)
           }).catch(err => console.warn('Welcome email failed:', err));
         }
@@ -89,7 +97,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
 
       await sendAutomatedEmail({
         to: targetEmail,
-        subject: `Reset Your GatherCraft Planner Password`,
+        subject: `Reset Your The Menu Crew Password`,
         html: buildPasswordResetLinkEmailHtml(targetName, targetEmail, resetLink)
       });
 
@@ -113,18 +121,8 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         id="auth-card"
       >
         {/* Brand Header */}
-        <div className="text-center space-y-2">
-          <span className="inline-block p-4 bg-[#FAF3F3] border border-[#F6EBEB] text-[#C88A8A] rounded-2xl text-3xl shadow-2xs">
-            {role === 'temple_team' ? '🕌' : '🌸'}
-          </span>
-          <h1 className="font-serif text-2xl font-semibold text-neutral-900 tracking-tight pt-2">
-            Gather Planner
-          </h1>
-          <p className="text-xs text-neutral-500 max-w-xs mx-auto">
-            {role === 'temple_team' 
-              ? 'Devotional volunteer team coordination & temple food planning'
-              : 'Plan intimate culinary celebrations and menus with simplicity and grace'}
-          </p>
+        <div className="text-center flex flex-col items-center justify-center pt-2 pb-1">
+          <Logo layout="stacked" size="xl" showSlogan={true} />
         </div>
 
         {/* Role Selection Tabs */}
@@ -293,36 +291,10 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
 
             {/* Input Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-[10px] font-bold text-neutral-600 uppercase tracking-wider mb-1.5">
-                  {isLogin 
-                    ? role === 'temple_team' ? 'Team Name / Email' : 'Username / Email'
-                    : role === 'temple_team' ? 'Team Name' : 'Username'
-                  }
-                </label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-400">
-                    <UserIcon size={15} />
-                  </span>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder={isLogin
-                      ? role === 'temple_team' ? "Team Name or Email" : "Username or Email"
-                      : role === 'temple_team' ? "e.g., Sunday Seva Squad" : "Enter your username or name"
-                    }
-                    className="w-full pl-10 pr-4 py-3 bg-white border border-[#EBE7DF] rounded-xl text-neutral-800 placeholder-neutral-400 focus:outline-hidden focus:ring-1 focus:ring-[#C88A8A] focus:border-[#C88A8A] text-sm transition-all"
-                    required
-                    id="auth-name-input"
-                  />
-                </div>
-              </div>
-
-              {!isLogin && (
+              {isLogin ? (
                 <div>
                   <label className="block text-[10px] font-bold text-neutral-600 uppercase tracking-wider mb-1.5">
-                    Email Address
+                    {role === 'temple_team' ? 'Team Email Address' : 'Email Address'}
                   </label>
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-400">
@@ -335,13 +307,55 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                       placeholder="you@example.com"
                       className="w-full pl-10 pr-4 py-3 bg-white border border-[#EBE7DF] rounded-xl text-neutral-800 placeholder-neutral-400 focus:outline-hidden focus:ring-1 focus:ring-[#C88A8A] focus:border-[#C88A8A] text-sm transition-all"
                       required
-                      id="auth-email-input"
+                      id="auth-login-email-input"
                     />
                   </div>
-                  <p className="text-[10px] text-neutral-400 mt-1 pl-1">
-                    Used for automated event notifications & sign-up updates.
-                  </p>
                 </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-[10px] font-bold text-neutral-600 uppercase tracking-wider mb-1.5">
+                      {role === 'temple_team' ? 'Team / Leader Full Name' : 'Full Name'}
+                    </label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-400">
+                        <UserIcon size={15} />
+                      </span>
+                      <input
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder={role === 'temple_team' ? "e.g., Sunday Seva Leader" : "e.g., Jane Doe"}
+                        className="w-full pl-10 pr-4 py-3 bg-white border border-[#EBE7DF] rounded-xl text-neutral-800 placeholder-neutral-400 focus:outline-hidden focus:ring-1 focus:ring-[#C88A8A] focus:border-[#C88A8A] text-sm transition-all"
+                        required
+                        id="auth-name-input"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-neutral-600 uppercase tracking-wider mb-1.5">
+                      Email Address
+                    </label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-400">
+                        <Mail size={15} />
+                      </span>
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="you@example.com"
+                        className="w-full pl-10 pr-4 py-3 bg-white border border-[#EBE7DF] rounded-xl text-neutral-800 placeholder-neutral-400 focus:outline-hidden focus:ring-1 focus:ring-[#C88A8A] focus:border-[#C88A8A] text-sm transition-all"
+                        required
+                        id="auth-email-input"
+                      />
+                    </div>
+                    <p className="text-[10px] text-neutral-400 mt-1 pl-1">
+                      Used for automated event notifications & sign-up updates.
+                    </p>
+                  </div>
+                </>
               )}
 
               <div>

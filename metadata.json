@@ -1,6 +1,6 @@
 {
-  "name": "GatherCraft Planner",
-  "description": "GatherCraft Planner - Event & Culinary Coordination Platform with 12-hour time, email reset links, and cloud synchronization.",
+  "name": "The Menu Crew",
+  "description": "The Menu Crew — Tap. Sign up. Eat. Event & Food Coordination Platform.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

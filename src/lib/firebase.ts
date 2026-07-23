@@ -375,7 +375,7 @@ export async function registerUser(
   const trimmedEmail = email.trim().toLowerCase();
   const trimmedPhone = (phoneNumber || '').trim();
   if (!trimmedName || !trimmedEmail || !password) {
-    throw new Error("Username, email, and password are required");
+    throw new Error("Full Name, email, and password are required");
   }
 
   const nameLower = trimmedName.toLowerCase();
@@ -383,7 +383,7 @@ export async function registerUser(
 
   const checkDuplicatesAndBuild = (existingUsers: User[]): User => {
     if (existingUsers.some(u => u.name && u.name.trim().toLowerCase() === nameLower)) {
-      throw new Error("A user with this username already exists. Please pick a different username or log in.");
+      throw new Error("A user with this Full Name already exists. Please log in or use a different name.");
     }
     if (existingUsers.some(u => u.email && u.email.trim().toLowerCase() === trimmedEmail)) {
       throw new Error("A user with this email address already exists. Please log in instead.");
@@ -460,7 +460,7 @@ export async function loginUser(
 ): Promise<User> {
   const trimmedInput = nameOrEmailOrPhone.trim();
   if (!trimmedInput || !password) {
-    throw new Error("Username/Email/Phone and password are required");
+    throw new Error("Email address and password are required");
   }
 
   const inputLower = trimmedInput.toLowerCase();

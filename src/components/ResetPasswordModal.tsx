@@ -40,7 +40,7 @@ export default function ResetPasswordModal({ email, name, role, onComplete }: Re
       // Send confirmation email
       sendAutomatedEmail({
         to: email,
-        subject: `Password Reset Confirmation - GatherCraft Planner`,
+        subject: `Password Reset Confirmation - The Menu Crew`,
         html: buildPasswordResetEmailHtml(name, email)
       }).catch(err => console.warn('Confirmation email failed:', err));
 

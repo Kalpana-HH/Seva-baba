@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 250" width="100%" height="100%">
+  <g transform="translate(10, 10)">
+    <!-- Smartphone Frame -->
+    <rect x="25" y="15" width="125" height="210" rx="22" fill="none" stroke="#C87413" stroke-width="10" />
+    <rect x="67.5" y="26" width="40" height="6" rx="3" fill="#C87413" />
+    <circle cx="87.5" cy="206" r="6" fill="#C87413" />
+    <path d="M 55 120 L 80 147 L 130 90" fill="none" stroke="#C87413" stroke-width="13" stroke-linecap="round" stroke-linejoin="round" />
+
+    <!-- Fork (4 tines) -->
+    <path d="M 165 67 L 165 105 C 165 117 180 117 180 105 L 180 67 M 170 67 L 170 103 M 175 67 L 175 103 M 172.5 115 L 172.5 225" 
+          fill="none" stroke="#C87413" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round" />
+
+    <!-- Plate Rings -->
+    <circle cx="255" cy="135" r="68" fill="none" stroke="#C87413" stroke-width="10" />
+    <circle cx="255" cy="135" r="44" fill="none" stroke="#C87413" stroke-width="7" />
+
+    <!-- Butter Knife -->
+    <path d="M 340 225 L 340 140 C 340 125 350 107 350 85 C 350 69 340 67 337 67 C 332 67 330 77 330 95 L 330 140 L 330 225 Z" 
+          fill="#C87413" stroke="#C87413" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+  </g>
+</svg>
