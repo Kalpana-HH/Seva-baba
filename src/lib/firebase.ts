@@ -312,52 +312,62 @@ export async function getUserByPhoneNumber(phone: string): Promise<User | null> 
   return getUserByEmailOrUsername(phone);
 }
 
+function formatNameFromEmail(email: string): string {
+  const prefix = email.split('@')[0] || '';
+  if (!prefix || prefix.toLowerCase() === 'google.member' || prefix.toLowerCase() === 'member') {
+    return 'Google Member';
+  }
+  const parts = prefix.split(/[._-]+/);
+  return parts.map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(' ');
+}
+
 /**
- * Sign in or Register using Google Sign-In provider in Firebase Authentication and save profile to Firestore.
+ * Sign in or Register using Google Sign-In provider in Firebase Authentication.
  */
 export async function loginWithGoogle(role: 'member' | 'temple_team', providedEmail?: string): Promise<User> {
-  let userProfile: User | null = null;
-
-  if (isFirebaseConfigured && auth) {
-    try {
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: 'select_account' });
-      const result = await signInWithPopup(auth, provider);
-      const googleUser = result.user;
-
-      userProfile = {
-        id: googleUser.uid,
-        name: googleUser.displayName || googleUser.email?.split('@')[0] || 'Google Member',
-        email: googleUser.email || providedEmail || 'google.member@gmail.com',
-        password: '••••••••',
-        phoneNumber: googleUser.phoneNumber || '',
-        role: role
-      };
-    } catch (e: any) {
-      console.warn("Google Sign-In popup notice/fallback:", e?.message || e);
-    }
+  if (!isFirebaseConfigured || !auth) {
+    throw new Error("Firebase Authentication is not initialized or configured.");
   }
 
-  // If popup was blocked by iframe/browser security or domain restrictions, seamlessly log in as Google Member
-  if (!userProfile) {
-    const cleanEmail = (providedEmail && providedEmail.trim().includes('@')) 
-      ? providedEmail.trim().toLowerCase() 
-      : 'google.member@gmail.com';
-    const emailPrefix = cleanEmail.split('@')[0];
-    const cleanName = emailPrefix ? (emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1)) : 'Google Member';
+  try {
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    const result = await signInWithPopup(auth, provider);
+    const googleUser = result.user;
 
-    userProfile = {
-      id: `google_${Date.now()}`,
-      name: cleanName,
-      email: cleanEmail,
+    const userEmail = googleUser.email || providedEmail || '';
+    let userName = googleUser.displayName;
+    if (!userName && userEmail) {
+      userName = formatNameFromEmail(userEmail);
+    } else if (!userName) {
+      userName = 'Google Member';
+    }
+
+    const userProfile: User = {
+      id: googleUser.uid,
+      name: userName,
+      email: userEmail,
       password: '••••••••',
-      phoneNumber: '',
+      phoneNumber: googleUser.phoneNumber || '',
       role: role
     };
-  }
 
-  await saveUserProfile(userProfile);
-  return userProfile;
+    await saveUserProfile(userProfile);
+    return userProfile;
+  } catch (e: any) {
+    console.error("Google Sign-In popup error:", e);
+    const code = e?.code || '';
+    if (code === 'auth/popup-blocked') {
+      throw new Error("Google Sign-In popup was blocked by your browser. Please allow popups or open the app in a new window/tab.");
+    } else if (code === 'auth/popup-closed-by-user') {
+      throw new Error("Google Sign-In window was closed before completing sign in.");
+    } else if (code === 'auth/operation-not-allowed') {
+      throw new Error("Google Sign-In is not enabled in your Firebase Console authentication providers.");
+    } else if (code === 'auth/unauthorized-domain') {
+      throw new Error("This app's domain is not authorized for Google Sign-In in Firebase Console.");
+    }
+    throw new Error(e?.message || "Google Sign-In failed. Please try again.");
+  }
 }
 
 /**
