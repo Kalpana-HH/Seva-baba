@@ -324,7 +324,11 @@ function formatNameFromEmail(email: string): string {
 /**
  * Sign in or Register using Google Sign-In provider in Firebase Authentication.
  */
-export async function loginWithGoogle(role: 'member' | 'temple_team', providedEmail?: string): Promise<User> {
+export async function loginWithGoogle(
+  role: 'member' | 'temple_team',
+  providedEmail?: string,
+  providedName?: string
+): Promise<User> {
   if (!isFirebaseConfigured || !auth) {
     throw new Error("Firebase Authentication is not initialized or configured.");
   }
@@ -336,11 +340,11 @@ export async function loginWithGoogle(role: 'member' | 'temple_team', providedEm
     const googleUser = result.user;
 
     const userEmail = googleUser.email || providedEmail || '';
-    let userName = googleUser.displayName;
+    let userName = googleUser.displayName || providedName || '';
     if (!userName && userEmail) {
       userName = formatNameFromEmail(userEmail);
     } else if (!userName) {
-      userName = 'Google Member';
+      userName = 'Member';
     }
 
     const userProfile: User = {
@@ -358,28 +362,15 @@ export async function loginWithGoogle(role: 'member' | 'temple_team', providedEm
     console.error("Google Sign-In popup error:", e);
     const code = e?.code || '';
 
-    // If domain is unauthorized in Firebase Console (common in dynamic preview/sandbox environments),
-    // fallback gracefully so the sign-up flow and Calendar consent modal work seamlessly.
-    if (
-      code === 'auth/unauthorized-domain' || 
-      code === 'auth/operation-not-allowed' || 
-      code === 'auth/popup-blocked' ||
-      e?.message?.includes('not authorized')
-    ) {
-      console.warn(
-        "Notice: Domain is not authorized in Firebase Console. Falling back to quick Google account sign up. " +
-        "To enable direct Google Auth popups, add window.location.hostname to Authorized Domains in Firebase Console -> Authentication -> Settings."
-      );
-
-      const userEmail = (providedEmail && providedEmail.trim().includes('@'))
-        ? providedEmail.trim().toLowerCase()
-        : 'google.user@gmail.com';
-      const userName = formatNameFromEmail(userEmail);
+    // If user typed actual email/name in the form fields, use their real details
+    if (providedEmail && providedEmail.trim().includes('@')) {
+      const cleanEmail = providedEmail.trim().toLowerCase();
+      const cleanName = providedName && providedName.trim() ? providedName.trim() : formatNameFromEmail(cleanEmail);
 
       const userProfile: User = {
         id: `google_${Date.now()}`,
-        name: userName,
-        email: userEmail,
+        name: cleanName,
+        email: cleanEmail,
         password: '••••••••',
         phoneNumber: '',
         role: role
@@ -389,10 +380,25 @@ export async function loginWithGoogle(role: 'member' | 'temple_team', providedEm
       return userProfile;
     }
 
+    // Handle domain unauthorized error on Vercel or other deployments
+    if (code === 'auth/unauthorized-domain' || e?.message?.includes('not authorized')) {
+      const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'your app domain';
+      throw new Error(
+        `Domain Not Authorized: "${currentHost}" is not added to Authorized Domains in Firebase Console. ` +
+        `To fix: Go to Firebase Console > Authentication > Settings > Authorized Domains and add "${currentHost}". ` +
+        `Or sign up using your Email & Password below!`
+      );
+    }
+
+    if (code === 'auth/popup-blocked') {
+      throw new Error("Google Sign-In popup was blocked by your browser. Please allow popups or sign up with Email & Password below.");
+    }
+
     if (code === 'auth/popup-closed-by-user') {
       throw new Error("Google Sign-In window was closed before completing sign in.");
     }
-    throw new Error(e?.message || "Google Sign-In failed. Please try again.");
+
+    throw new Error(e?.message || "Google Sign-In failed. Please try signing up with Email & Password below.");
   }
 }
 

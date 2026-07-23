@@ -75,7 +75,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     setLoading(true);
 
     try {
-      const user = await loginWithGoogle(role, email);
+      const user = await loginWithGoogle(role, email, name);
       if (user.email && user.email.includes('@')) {
         sendAutomatedEmail({
           to: user.email,
