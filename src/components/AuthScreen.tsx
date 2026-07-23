@@ -75,7 +75,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     setLoading(true);
 
     try {
-      const user = await loginWithGoogle(role);
+      const user = await loginWithGoogle(role, email);
       if (user.email && user.email.includes('@')) {
         sendAutomatedEmail({
           to: user.email,
@@ -85,6 +85,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
       }
       onAuthSuccess(user);
     } catch (err: any) {
+      console.error('Google Sign-In notice:', err);
       setError(err.message || "Google Sign-In failed.");
     } finally {
       setLoading(false);

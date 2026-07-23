@@ -45,6 +45,19 @@
         "completed": { "type": "boolean" }
       },
       "required": ["id", "eventId", "title", "timelineStage", "completed"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Registered user profile saved alongside Firebase Authentication",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string" },
+        "phoneNumber": { "type": "string" }
+      },
+      "required": ["id", "name", "email", "role"]
     }
   },
   "firestore": {
@@ -59,6 +72,10 @@
     "/tasks/{taskId}": {
       "schema": "Task",
       "description": "Checklist preparation tasks per gathering"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Registered user profiles"
     }
   }
 }
