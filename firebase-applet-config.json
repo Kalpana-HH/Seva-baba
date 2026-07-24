@@ -1,11 +1,11 @@
 {
-  "projectId": "composed-phenomenon-qjwpf",
-  "appId": "1:273352414291:web:8b38df799f4cc996f5e2a6",
-  "apiKey": "AIzaSyAfRGMlc0yqNx5hbTysW0F3J1FUs_hWlyo",
-  "authDomain": "composed-phenomenon-qjwpf.firebaseapp.com",
-  "storageBucket": "composed-phenomenon-qjwpf.firebasestorage.app",
-  "messagingSenderId": "273352414291",
-  "measurementId": "",
+  "apiKey": "AIzaSyDLnUcadFbYwblKlfSu3ae0_m3RZ0mwj6I",
+  "authDomain": "new-app-menu.firebaseapp.com",
+  "projectId": "new-app-menu",
+  "storageBucket": "new-app-menu.firebasestorage.app",
+  "messagingSenderId": "879388082803",
+  "appId": "1:879388082803:web:a72c3ac62fddaab0666006",
+  "measurementId": "G-CBZFQ3ND8C",
   "oAuthClientId": "273352414291-vhqhdkfk5qoqgl8ni41bf48n7lrpbp3h.apps.googleusercontent.com",
   "recaptchaSiteKey": ""
 }
